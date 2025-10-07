@@ -35,11 +35,15 @@ export default function FeedbackWidget({ siteSlug, className = '' }: FeedbackWid
   const fetchFeedbacks = async () => {
     setLoading(true);
     try {
-      const response = await fetch(`/.netlify/functions/feedback?action=get_public&site=${siteSlug}&limit=5`);
+      const response = await fetch('/.netlify/functions/api/feedbacks/list', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ siteSlug })
+      });
       const result = await response.json();
       
-      if (result.ok) {
-        setFeedbacks(result.data.feedbacks);
+      if (result.success) {
+        setFeedbacks(result.data || []);
       }
     } catch (error) {
       console.error('Erro ao buscar feedbacks:', error);
@@ -60,24 +64,22 @@ export default function FeedbackWidget({ siteSlug, className = '' }: FeedbackWid
     setSubmitting(true);
     
     try {
-      const response = await fetch('/.netlify/functions/feedback', {
+      const response = await fetch('/.netlify/functions/api/feedbacks/submit', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          action: 'submit',
           siteSlug,
           name: formData.name,
           email: formData.email,
           phone: formData.phone,
           rating: formData.rating,
-          message: formData.message,
-          source: 'website'
+          comment: formData.message
         })
       });
 
       const result = await response.json();
       
-      if (result.ok) {
+      if (result.success) {
         setSubmitted(true);
         setFormData({ name: '', email: '', phone: '', rating: 0, message: '' });
         // Atualizar lista após 2 segundos
