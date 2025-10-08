@@ -1,0 +1,441 @@
+{
+  "name": "ELEVEA PARTE 2 - Bloco 6: Marketplace (4 endpoints VIP)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "api/marketplace/purchase",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "webhook-marketplace-purchase",
+      "name": "🏪 Webhook - Marketplace Purchase",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [260, 14900],
+      "webhookId": "elevea-marketplace-purchase"
+    },
+    {
+      "parameters": {
+        "jsCode": "// FUNÇÃO: marketplace_purchase_template (do GAS linha 1419)\nconst crypto = require('crypto');\nconst out = [];\n\nfor (const { json } of items) {\n  const { site, siteSlug, templateId, customerEmail } = json.body || {};\n  const normalizedSite = (site || siteSlug || '').toUpperCase();\n  \n  if (!templateId || !customerEmail) {\n    out.push({\n      json: {\n        success: false,\n        error: 'Template ID e customer email são obrigatórios',\n        timestamp: new Date().toISOString()\n      }\n    });\n    continue;\n  }\n  \n  out.push({\n    json: {\n      templateId: templateId,\n      siteSlug: normalizedSite,\n      customerEmail: customerEmail.toLowerCase().trim(),\n      searchFormula: `{id}='${templateId}'`,\n      needsVipCheck: true,\n      timestamp: new Date().toISOString()\n    }\n  });\n}\nreturn out;"
+      },
+      "id": "code-marketplace-purchase-prep",
+      "name": "📝 Code - Prepare Purchase",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [460, 14900]
+    },
+    {
+      "parameters": {
+        "operation": "search",
+        "base": {"__rl": true, "value": "appELEVEA", "mode": "list"},
+        "table": {"__rl": true, "value": "marketplace_templates", "mode": "list"},
+        "filterByFormula": "={{ $json.searchFormula }}",
+        "options": {}
+      },
+      "id": "airtable-search-template-purchase",
+      "name": "🗄️ Airtable - Search Template",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [660, 14900]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Gerar licenseKey (usa generateLicenseKey do GAS linha 212)\nconst out = [];\nfor (const { json } of items) {\n  const fields = json.fields || {};\n  \n  // Gerar chave de licença: XXXX-XXXX-XXXX-XXXX\n  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';\n  let licenseKey = '';\n  for (let i = 0; i < 16; i++) {\n    licenseKey += chars.charAt(Math.floor(Math.random() * chars.length));\n    if (i % 4 === 3 && i < 15) licenseKey += '-';\n  }\n  \n  const crypto = require('crypto');\n  const purchaseId = crypto.randomUUID();\n  \n  out.push({\n    json: {\n      purchaseId: purchaseId,\n      templateId: fields.id,\n      templateName: fields.name,\n      templatePrice: fields.price || 0,\n      currency: fields.currency || 'BRL',\n      siteSlug: $node['Code - Prepare Purchase'].json.siteSlug,\n      customerEmail: $node['Code - Prepare Purchase'].json.customerEmail,\n      licenseKey: licenseKey,\n      downloadUrl: `https://elevea.com/downloads/${purchaseId}`,\n      purchaseDate: new Date().toISOString(),\n      status: fields.price > 0 ? 'pending_payment' : 'completed',\n      needsPayment: fields.price > 0,\n      timestamp: new Date().toISOString()\n    }\n  });\n}\nreturn out;"
+      },
+      "id": "code-generate-license",
+      "name": "🔑 Code - Generate License",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [860, 14900]
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "base": {"__rl": true, "value": "appELEVEA", "mode": "list"},
+        "table": {"__rl": true, "value": "template_purchases", "mode": "list"},
+        "fieldsUi": {
+          "fieldValues": [
+            {"fieldName": "id", "fieldValue": "={{ $json.purchaseId }}"},
+            {"fieldName": "templateId", "fieldValue": "={{ $json.templateId }}"},
+            {"fieldName": "site", "fieldValue": "={{ $json.siteSlug }}"},
+            {"fieldName": "customerEmail", "fieldValue": "={{ $json.customerEmail }}"},
+            {"fieldName": "pricePaid", "fieldValue": "={{ $json.templatePrice }}"},
+            {"fieldName": "currency", "fieldValue": "={{ $json.currency }}"},
+            {"fieldName": "licenseKey", "fieldValue": "={{ $json.licenseKey }}"},
+            {"fieldName": "downloadUrl", "fieldValue": "={{ $json.downloadUrl }}"},
+            {"fieldName": "purchaseDate", "fieldValue": "={{ $json.purchaseDate }}"},
+            {"fieldName": "status", "fieldValue": "={{ $json.status }}"}
+          ]
+        }
+      },
+      "id": "airtable-save-purchase",
+      "name": "🗄️ Airtable - Save Purchase",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [1060, 14900]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {"value1": "={{ $json.needsPayment }}", "value2": true}
+          ]
+        }
+      },
+      "id": "if-needs-payment",
+      "name": "🔀 IF - Needs Payment?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1260, 14900]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.mercadopago.com/checkout/preferences",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {"name": "Authorization", "value": "Bearer {{ $json.MP_ACCESS_TOKEN }}"}
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ {\\n  items: [{\\n    title: $json.templateName,\\n    quantity: 1,\\n    unit_price: $json.templatePrice\\n  }],\\n  external_reference: $json.purchaseId,\\n  back_urls: {\\n    success: 'https://agenciaelevea.netlify.app/marketplace/success',\\n    failure: 'https://agenciaelevea.netlify.app/marketplace/failure'\\n  }\\n} }}",
+        "options": {}
+      },
+      "id": "http-mp-create-payment",
+      "name": "💳 HTTP - MP Create Payment",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [1460, 14800]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Preparar resposta com payment link\nconst out = [];\nfor (const { json } of items) {\n  const paymentLink = json.init_point || null;\n  const inputData = $node['Code - Generate License'].json;\n  \n  out.push({\n    json: {\n      success: true,\n      data: {\n        purchaseId: inputData.purchaseId,\n        licenseKey: inputData.licenseKey,\n        downloadUrl: inputData.downloadUrl,\n        paymentLink: paymentLink,\n        status: 'pending_payment',\n        message: 'Complete o pagamento para liberar o download'\n      },\n      timestamp: new Date().toISOString()\n    }\n  });\n}\nreturn out;"
+      },
+      "id": "code-prep-payment-response",
+      "name": "📝 Code - Prep Payment Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1660, 14800]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Template gratuito - resposta direta\nconst out = [];\nfor (const { json } of items) {\n  out.push({\n    json: {\n      success: true,\n      data: {\n        purchaseId: json.purchaseId,\n        licenseKey: json.licenseKey,\n        downloadUrl: json.downloadUrl,\n        status: 'completed',\n        message: 'Download disponível imediatamente'\n      },\n      timestamp: new Date().toISOString()\n    }\n  });\n}\nreturn out;"
+      },
+      "id": "code-free-template-response",
+      "name": "📝 Code - Free Template Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1660, 15000]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {
+          "headers": {
+            "entries": [{"name": "Access-Control-Allow-Origin", "value": "*"}]
+          }
+        }
+      },
+      "id": "respond-marketplace-purchase",
+      "name": "📤 Respond - Purchase",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [1860, 14900]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "api/marketplace/rate",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "webhook-marketplace-rate",
+      "name": "🏪 Webhook - Marketplace Rate",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [260, 15200],
+      "webhookId": "elevea-marketplace-rate"
+    },
+    {
+      "parameters": {
+        "jsCode": "// FUNÇÃO: marketplace_rate_template (do GAS linha 1421)\nconst out = [];\nfor (const { json } of items) {\n  const { templateId, rating, review } = json.body || {};\n  \n  if (!templateId || !rating) {\n    out.push({\n      json: {\n        success: false,\n        error: 'Template ID e rating são obrigatórios',\n        timestamp: new Date().toISOString()\n      }\n    });\n    continue;\n  }\n  \n  if (rating < 1 || rating > 5) {\n    out.push({\n      json: {\n        success: false,\n        error: 'Rating deve ser entre 1 e 5',\n        timestamp: new Date().toISOString()\n      }\n    });\n    continue;\n  }\n  \n  out.push({\n    json: {\n      templateId: templateId,\n      rating: parseInt(rating),\n      review: review || '',\n      searchFormula: `{id}='${templateId}'`,\n      timestamp: new Date().toISOString()\n    }\n  });\n}\nreturn out;"
+      },
+      "id": "code-rate-template-prep",
+      "name": "📝 Code - Prepare Rating",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [460, 15200]
+    },
+    {
+      "parameters": {
+        "operation": "search",
+        "base": {"__rl": true, "value": "appELEVEA", "mode": "list"},
+        "table": {"__rl": true, "value": "marketplace_templates", "mode": "list"},
+        "filterByFormula": "={{ $json.searchFormula }}",
+        "options": {}
+      },
+      "id": "airtable-search-template-rate",
+      "name": "🗄️ Airtable - Search Template",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [660, 15200]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Calcular nova média de rating\nconst out = [];\nfor (const { json } of items) {\n  const fields = json.fields || {};\n  const currentRating = parseFloat(fields.rating) || 0;\n  const downloads = parseInt(fields.downloads) || 0;\n  const newRating = $node['Code - Prepare Rating'].json.rating;\n  \n  // Média ponderada: (rating_atual * downloads + novo_rating) / (downloads + 1)\n  const newAverage = downloads > 0 \n    ? ((currentRating * downloads) + newRating) / (downloads + 1)\n    : newRating;\n  \n  out.push({\n    json: {\n      recordId: json.id,\n      newRating: Math.round(newAverage * 10) / 10, // 1 decimal\n      newDownloads: downloads + 1,\n      timestamp: new Date().toISOString()\n    }\n  });\n}\nreturn out;"
+      },
+      "id": "code-calc-new-rating",
+      "name": "📊 Code - Calculate Rating",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [860, 15200]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "base": {"__rl": true, "value": "appELEVEA", "mode": "list"},
+        "table": {"__rl": true, "value": "marketplace_templates", "mode": "list"},
+        "id": "={{ $json.recordId }}",
+        "fieldsUi": {
+          "fieldValues": [
+            {"fieldName": "rating", "fieldValue": "={{ $json.newRating }}"},
+            {"fieldName": "downloads", "fieldValue": "={{ $json.newDownloads }}"}
+          ]
+        }
+      },
+      "id": "airtable-update-template-rating",
+      "name": "🗄️ Airtable - Update Rating",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [1060, 15200]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { success: true, message: 'Avaliação registrada com sucesso', newRating: $json.newRating, timestamp: new Date().toISOString() } }}",
+        "options": {
+          "headers": {
+            "entries": [{"name": "Access-Control-Allow-Origin", "value": "*"}]
+          }
+        }
+      },
+      "id": "respond-marketplace-rate",
+      "name": "📤 Respond - Rate",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [1260, 15200]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "api/marketplace/categories",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "webhook-marketplace-categories",
+      "name": "🏪 Webhook - Marketplace Categories",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [260, 15400],
+      "webhookId": "elevea-marketplace-categories"
+    },
+    {
+      "parameters": {
+        "operation": "list",
+        "base": {"__rl": true, "value": "appELEVEA", "mode": "list"},
+        "table": {"__rl": true, "value": "template_categories", "mode": "list"},
+        "returnAll": true,
+        "options": {}
+      },
+      "id": "airtable-list-categories",
+      "name": "🗄️ Airtable - List Categories",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [460, 15400]
+    },
+    {
+      "parameters": {
+        "operation": "list",
+        "base": {"__rl": true, "value": "appELEVEA", "mode": "list"},
+        "table": {"__rl": true, "value": "marketplace_templates", "mode": "list"},
+        "returnAll": true,
+        "options": {}
+      },
+      "id": "airtable-list-all-templates",
+      "name": "🗄️ Airtable - List All Templates",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [660, 15400]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Contar templates por categoria (do GAS linha 1422)\nconst categories = items[0]?.json || [];\nconst templates = items[1]?.json || [];\n\nconst categoryMap = {};\ncategories.forEach(cat => {\n  const fields = cat.fields || cat;\n  categoryMap[fields.id] = {\n    id: fields.id,\n    name: fields.name,\n    description: fields.description || '',\n    icon: fields.icon || '📦',\n    templateCount: 0\n  };\n});\n\n// Contar templates por categoria\ntemplates.forEach(tpl => {\n  const fields = tpl.fields || tpl;\n  const catId = fields.category;\n  if (catId && categoryMap[catId]) {\n    categoryMap[catId].templateCount++;\n  }\n});\n\nconst categoriesArray = Object.values(categoryMap);\n\nconst out = [{\n  json: {\n    success: true,\n    data: {\n      categories: categoriesArray,\n      total: categoriesArray.length\n    },\n    timestamp: new Date().toISOString()\n  }\n}];\nreturn out;"
+      },
+      "id": "code-count-templates-by-category",
+      "name": "📊 Code - Count Templates",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [860, 15400]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {
+          "headers": {
+            "entries": [{"name": "Access-Control-Allow-Origin", "value": "*"}]
+          }
+        }
+      },
+      "id": "respond-marketplace-categories",
+      "name": "📤 Respond - Categories",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [1060, 15400]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "api/marketplace/my-purchases",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "webhook-my-purchases",
+      "name": "🏪 Webhook - My Purchases",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [260, 15600],
+      "webhookId": "elevea-my-purchases"
+    },
+    {
+      "parameters": {
+        "jsCode": "// FUNÇÃO: marketplace_get_purchases (do GAS linha 1423)\nconst out = [];\nfor (const { json } of items) {\n  const { customerEmail } = json.body || {};\n  \n  if (!customerEmail) {\n    out.push({\n      json: {\n        success: false,\n        error: 'Customer email é obrigatório',\n        timestamp: new Date().toISOString()\n      }\n    });\n    continue;\n  }\n  \n  out.push({\n    json: {\n      customerEmail: customerEmail.toLowerCase().trim(),\n      searchFormula: `{customerEmail}='${customerEmail.toLowerCase().trim()}'`,\n      timestamp: new Date().toISOString()\n    }\n  });\n}\nreturn out;"
+      },
+      "id": "code-my-purchases-prep",
+      "name": "📝 Code - Prepare My Purchases",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [460, 15600]
+    },
+    {
+      "parameters": {
+        "operation": "list",
+        "base": {"__rl": true, "value": "appELEVEA", "mode": "list"},
+        "table": {"__rl": true, "value": "template_purchases", "mode": "list"},
+        "returnAll": true,
+        "options": {
+          "filterByFormula": "={{ $json.searchFormula }}"
+        }
+      },
+      "id": "airtable-list-my-purchases",
+      "name": "🗄️ Airtable - List My Purchases",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [660, 15600]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Formatar lista de compras\nconst out = [];\nconst purchases = items.map(i => {\n  const fields = i.json.fields || i.json;\n  return {\n    purchaseId: fields.id,\n    templateId: fields.templateId,\n    templateName: fields.templateName || 'Template',\n    licenseKey: fields.licenseKey,\n    downloadUrl: fields.downloadUrl,\n    purchaseDate: fields.purchaseDate,\n    pricePaid: fields.pricePaid,\n    currency: fields.currency,\n    status: fields.status\n  };\n});\n\n// Ordenar por data (mais recente primeiro)\npurchases.sort((a, b) => new Date(b.purchaseDate) - new Date(a.purchaseDate));\n\nout.push({\n  json: {\n    success: true,\n    data: {\n      purchases: purchases,\n      total: purchases.length\n    },\n    timestamp: new Date().toISOString()\n  }\n});\nreturn out;"
+      },
+      "id": "code-format-my-purchases",
+      "name": "📊 Code - Format Purchases",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [860, 15600]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {
+          "headers": {
+            "entries": [{"name": "Access-Control-Allow-Origin", "value": "*"}]
+          }
+        }
+      },
+      "id": "respond-my-purchases",
+      "name": "📤 Respond - My Purchases",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [1060, 15600]
+    }
+  ],
+  "connections": {
+    "webhook-marketplace-purchase": {
+      "main": [[{"node": "code-marketplace-purchase-prep", "type": "main", "index": 0}]]
+    },
+    "code-marketplace-purchase-prep": {
+      "main": [[{"node": "airtable-search-template-purchase", "type": "main", "index": 0}]]
+    },
+    "airtable-search-template-purchase": {
+      "main": [[{"node": "code-generate-license", "type": "main", "index": 0}]]
+    },
+    "code-generate-license": {
+      "main": [[{"node": "airtable-save-purchase", "type": "main", "index": 0}]]
+    },
+    "airtable-save-purchase": {
+      "main": [[{"node": "if-needs-payment", "type": "main", "index": 0}]]
+    },
+    "if-needs-payment": {
+      "main": [
+        [{"node": "http-mp-create-payment", "type": "main", "index": 0}],
+        [{"node": "code-free-template-response", "type": "main", "index": 0}]
+      ]
+    },
+    "http-mp-create-payment": {
+      "main": [[{"node": "code-prep-payment-response", "type": "main", "index": 0}]]
+    },
+    "code-prep-payment-response": {
+      "main": [[{"node": "respond-marketplace-purchase", "type": "main", "index": 0}]]
+    },
+    "code-free-template-response": {
+      "main": [[{"node": "respond-marketplace-purchase", "type": "main", "index": 0}]]
+    },
+    "webhook-marketplace-rate": {
+      "main": [[{"node": "code-rate-template-prep", "type": "main", "index": 0}]]
+    },
+    "code-rate-template-prep": {
+      "main": [[{"node": "airtable-search-template-rate", "type": "main", "index": 0}]]
+    },
+    "airtable-search-template-rate": {
+      "main": [[{"node": "code-calc-new-rating", "type": "main", "index": 0}]]
+    },
+    "code-calc-new-rating": {
+      "main": [[{"node": "airtable-update-template-rating", "type": "main", "index": 0}]]
+    },
+    "airtable-update-template-rating": {
+      "main": [[{"node": "respond-marketplace-rate", "type": "main", "index": 0}]]
+    },
+    "webhook-marketplace-categories": {
+      "main": [[{"node": "airtable-list-categories", "type": "main", "index": 0}]]
+    },
+    "airtable-list-categories": {
+      "main": [[{"node": "airtable-list-all-templates", "type": "main", "index": 0}]]
+    },
+    "airtable-list-all-templates": {
+      "main": [[{"node": "code-count-templates-by-category", "type": "main", "index": 0}]]
+    },
+    "code-count-templates-by-category": {
+      "main": [[{"node": "respond-marketplace-categories", "type": "main", "index": 0}]]
+    },
+    "webhook-my-purchases": {
+      "main": [[{"node": "code-my-purchases-prep", "type": "main", "index": 0}]]
+    },
+    "code-my-purchases-prep": {
+      "main": [[{"node": "airtable-list-my-purchases", "type": "main", "index": 0}]]
+    },
+    "airtable-list-my-purchases": {
+      "main": [[{"node": "code-format-my-purchases", "type": "main", "index": 0}]]
+    },
+    "code-format-my-purchases": {
+      "main": [[{"node": "respond-my-purchases", "type": "main", "index": 0}]]
+    }
+  }
+}
+

@@ -1,0 +1,402 @@
+{
+  "name": "ELEVEA PARTE 2 - Bloco 2: Ecommerce Restante (3 endpoints)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "api/ecommerce/products/update",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "webhook-ecommerce-product-update",
+      "name": "🛍️ Webhook - Ecommerce Update Product",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [260, 11900],
+      "webhookId": "elevea-ecommerce-product-update"
+    },
+    {
+      "parameters": {
+        "jsCode": "// FUNÇÃO: ecommerce_update_product (do GAS linha 1396)\nconst out = [];\nfor (const { json } of items) {\n  const { site, siteSlug, productId, product } = json.body || {};\n  const normalizedSite = (site || siteSlug || '').toUpperCase();\n  \n  if (!normalizedSite) {\n    out.push({\n      json: {\n        success: false,\n        error: 'Site é obrigatório',\n        timestamp: new Date().toISOString()\n      }\n    });\n    continue;\n  }\n  \n  if (!productId) {\n    out.push({\n      json: {\n        success: false,\n        error: 'Product ID é obrigatório',\n        timestamp: new Date().toISOString()\n      }\n    });\n    continue;\n  }\n  \n  out.push({\n    json: {\n      siteSlug: normalizedSite,\n      productId: productId,\n      searchFormula: `AND({id}='${productId}', {site}='${normalizedSite}')`,\n      updates: {\n        name: product?.name,\n        description: product?.description,\n        price: product?.price,\n        category: product?.category,\n        images: product?.images ? JSON.stringify(product.images) : undefined,\n        stock: product?.stock !== undefined ? product.stock : undefined,\n        active: product?.active !== undefined ? product.active : undefined,\n        updatedAt: new Date().toISOString()\n      },\n      needsVipCheck: true,\n      timestamp: new Date().toISOString()\n    }\n  });\n}\nreturn out;"
+      },
+      "id": "code-ecommerce-product-update-prep",
+      "name": "📝 Code - Prepare Product Update",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [460, 11900]
+    },
+    {
+      "parameters": {
+        "operation": "search",
+        "base": {"__rl": true, "value": "appELEVEA", "mode": "list"},
+        "table": {"__rl": true, "value": "clients", "mode": "list"},
+        "filterByFormula": "=AND({site_slug}='{{ $json.siteSlug }}', {plan}='vip')",
+        "options": {}
+      },
+      "id": "airtable-check-vip-product-update",
+      "name": "🗄️ Airtable - Check VIP",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [660, 11900]
+    },
+    {
+      "parameters": {
+        "operation": "search",
+        "base": {"__rl": true, "value": "appELEVEA", "mode": "list"},
+        "table": {"__rl": true, "value": "products", "mode": "list"},
+        "filterByFormula": "={{ $json.searchFormula }}",
+        "options": {}
+      },
+      "id": "airtable-search-product-update",
+      "name": "🗄️ Airtable - Search Product",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [860, 11900]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "base": {"__rl": true, "value": "appELEVEA", "mode": "list"},
+        "table": {"__rl": true, "value": "products", "mode": "list"},
+        "id": "={{ $json.id }}",
+        "fieldsUi": {
+          "fieldValues": [
+            {"fieldName": "name", "fieldValue": "={{ $json.updates.name }}"},
+            {"fieldName": "description", "fieldValue": "={{ $json.updates.description }}"},
+            {"fieldName": "price", "fieldValue": "={{ $json.updates.price }}"},
+            {"fieldName": "category", "fieldValue": "={{ $json.updates.category }}"},
+            {"fieldName": "images", "fieldValue": "={{ $json.updates.images }}"},
+            {"fieldName": "stock", "fieldValue": "={{ $json.updates.stock }}"},
+            {"fieldName": "active", "fieldValue": "={{ $json.updates.active }}"},
+            {"fieldName": "updated_at", "fieldValue": "={{ $json.updates.updatedAt }}"}
+          ]
+        }
+      },
+      "id": "airtable-update-product",
+      "name": "🗄️ Airtable - Update Product",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [1060, 11900]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { success: true, message: 'Produto atualizado com sucesso', data: $json.fields, timestamp: new Date().toISOString() } }}",
+        "options": {
+          "headers": {
+            "entries": [{"name": "Access-Control-Allow-Origin", "value": "*"}]
+          }
+        }
+      },
+      "id": "respond-product-update",
+      "name": "📤 Respond - Product Update",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [1260, 11900]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "api/ecommerce/products/delete",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "webhook-ecommerce-product-delete",
+      "name": "🛍️ Webhook - Ecommerce Delete Product",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [260, 12100],
+      "webhookId": "elevea-ecommerce-product-delete"
+    },
+    {
+      "parameters": {
+        "jsCode": "// FUNÇÃO: ecommerce_delete_product (do GAS linha 1397) - SOFT DELETE\nconst out = [];\nfor (const { json } of items) {\n  const { site, siteSlug, productId } = json.body || {};\n  const normalizedSite = (site || siteSlug || '').toUpperCase();\n  \n  if (!normalizedSite || !productId) {\n    out.push({\n      json: {\n        success: false,\n        error: 'Site e Product ID são obrigatórios',\n        timestamp: new Date().toISOString()\n      }\n    });\n    continue;\n  }\n  \n  out.push({\n    json: {\n      siteSlug: normalizedSite,\n      productId: productId,\n      searchFormula: `AND({id}='${productId}', {site}='${normalizedSite}')`,\n      needsVipCheck: true,\n      timestamp: new Date().toISOString()\n    }\n  });\n}\nreturn out;"
+      },
+      "id": "code-product-delete-prep",
+      "name": "📝 Code - Prepare Product Delete",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [460, 12100]
+    },
+    {
+      "parameters": {
+        "operation": "search",
+        "base": {"__rl": true, "value": "appELEVEA", "mode": "list"},
+        "table": {"__rl": true, "value": "clients", "mode": "list"},
+        "filterByFormula": "=AND({site_slug}='{{ $json.siteSlug }}', {plan}='vip')",
+        "options": {}
+      },
+      "id": "airtable-check-vip-product-delete",
+      "name": "🗄️ Airtable - Check VIP",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [660, 12100]
+    },
+    {
+      "parameters": {
+        "operation": "search",
+        "base": {"__rl": true, "value": "appELEVEA", "mode": "list"},
+        "table": {"__rl": true, "value": "products", "mode": "list"},
+        "filterByFormula": "={{ $json.searchFormula }}",
+        "options": {}
+      },
+      "id": "airtable-search-product-delete",
+      "name": "🗄️ Airtable - Search Product",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [860, 12100]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "base": {"__rl": true, "value": "appELEVEA", "mode": "list"},
+        "table": {"__rl": true, "value": "products", "mode": "list"},
+        "id": "={{ $json.id }}",
+        "fieldsUi": {
+          "fieldValues": [
+            {"fieldName": "active", "fieldValue": "false"},
+            {"fieldName": "deleted_at", "fieldValue": "={{ new Date().toISOString() }}"},
+            {"fieldName": "updated_at", "fieldValue": "={{ new Date().toISOString() }}"}
+          ]
+        }
+      },
+      "id": "airtable-soft-delete-product",
+      "name": "🗄️ Airtable - Soft Delete Product",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [1060, 12100]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { success: true, message: 'Produto removido com sucesso', productId: $json.productId, timestamp: new Date().toISOString() } }}",
+        "options": {
+          "headers": {
+            "entries": [{"name": "Access-Control-Allow-Origin", "value": "*"}]
+          }
+        }
+      },
+      "id": "respond-product-delete",
+      "name": "📤 Respond - Product Delete",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [1260, 12100]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "api/ecommerce/store/settings",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "webhook-store-settings",
+      "name": "🛍️ Webhook - Store Settings",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [260, 12300],
+      "webhookId": "elevea-store-settings"
+    },
+    {
+      "parameters": {
+        "jsCode": "// FUNÇÃO: ecommerce_get_store_settings + ecommerce_update_store_settings (GAS linha 7112 + 1401)\nconst out = [];\nfor (const { json } of items) {\n  const { site, siteSlug, action = 'get', settings } = json.body || {};\n  const normalizedSite = (site || siteSlug || '').toUpperCase();\n  \n  if (!normalizedSite) {\n    out.push({\n      json: {\n        success: false,\n        error: 'Site é obrigatório',\n        timestamp: new Date().toISOString()\n      }\n    });\n    continue;\n  }\n  \n  if (action === 'update' && !settings) {\n    out.push({\n      json: {\n        success: false,\n        error: 'Settings são obrigatórios para update',\n        timestamp: new Date().toISOString()\n      }\n    });\n    continue;\n  }\n  \n  out.push({\n    json: {\n      siteSlug: normalizedSite,\n      action: action,\n      settings: settings || {},\n      searchFormula: `{site}='${normalizedSite}'`,\n      needsVipCheck: true,\n      timestamp: new Date().toISOString()\n    }\n  });\n}\nreturn out;"
+      },
+      "id": "code-store-settings-prep",
+      "name": "📝 Code - Prepare Store Settings",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [460, 12300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {"value1": "={{ $json.action }}", "operation": "equals", "value2": "get"}
+          ]
+        }
+      },
+      "id": "if-store-action-get",
+      "name": "🔀 IF - Action Get?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [660, 12300]
+    },
+    {
+      "parameters": {
+        "operation": "search",
+        "base": {"__rl": true, "value": "appELEVEA", "mode": "list"},
+        "table": {"__rl": true, "value": "store_settings", "mode": "list"},
+        "filterByFormula": "={{ $json.searchFormula }}",
+        "options": {}
+      },
+      "id": "airtable-search-store-settings",
+      "name": "🗄️ Airtable - Search Store Settings",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [860, 12200]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse JSON fields e retornar settings\nconst out = [];\nfor (const { json } of items) {\n  const fields = json.fields || {};\n  \n  // Parse arrays JSON\n  let paymentMethods = [];\n  let shippingZones = [];\n  \n  try {\n    paymentMethods = typeof fields.paymentMethods === 'string' \n      ? JSON.parse(fields.paymentMethods) \n      : (fields.paymentMethods || ['pix', 'credit']);\n  } catch (e) {\n    paymentMethods = ['pix', 'credit'];\n  }\n  \n  try {\n    shippingZones = typeof fields.shippingZones === 'string' \n      ? JSON.parse(fields.shippingZones) \n      : (fields.shippingZones || []);\n  } catch (e) {\n    shippingZones = [];\n  }\n  \n  out.push({\n    json: {\n      success: true,\n      data: {\n        name: fields.name || 'Minha Loja',\n        currency: fields.currency || 'BRL',\n        paymentMethods: paymentMethods,\n        shippingZones: shippingZones,\n        updatedAt: fields.updatedAt\n      },\n      timestamp: new Date().toISOString()\n    }\n  });\n}\n\n// Se não encontrou, retornar defaults\nif (out.length === 0) {\n  out.push({\n    json: {\n      success: true,\n      data: {\n        name: 'Minha Loja',\n        currency: 'BRL',\n        paymentMethods: ['pix', 'credit'],\n        shippingZones: [],\n        updatedAt: null\n      },\n      timestamp: new Date().toISOString()\n    }\n  });\n}\nreturn out;"
+      },
+      "id": "code-parse-store-settings",
+      "name": "📊 Code - Parse Store Settings",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1060, 12200]
+    },
+    {
+      "parameters": {
+        "operation": "search",
+        "base": {"__rl": true, "value": "appELEVEA", "mode": "list"},
+        "table": {"__rl": true, "value": "store_settings", "mode": "list"},
+        "filterByFormula": "={{ $json.searchFormula }}",
+        "options": {}
+      },
+      "id": "airtable-search-store-for-update",
+      "name": "🗄️ Airtable - Search Store",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [860, 12400]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "number": [
+            {"value1": "={{ $json.length }}", "operation": "largerEqual", "value2": 1}
+          ]
+        }
+      },
+      "id": "if-store-exists",
+      "name": "🔀 IF - Store Exists?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1060, 12400]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "base": {"__rl": true, "value": "appELEVEA", "mode": "list"},
+        "table": {"__rl": true, "value": "store_settings", "mode": "list"},
+        "id": "={{ $json.id }}",
+        "fieldsUi": {
+          "fieldValues": [
+            {"fieldName": "name", "fieldValue": "={{ $json.settings.name }}"},
+            {"fieldName": "currency", "fieldValue": "={{ $json.settings.currency }}"},
+            {"fieldName": "paymentMethods", "fieldValue": "={{ JSON.stringify($json.settings.paymentMethods) }}"},
+            {"fieldName": "shippingZones", "fieldValue": "={{ JSON.stringify($json.settings.shippingZones) }}"},
+            {"fieldName": "updatedAt", "fieldValue": "={{ new Date().toISOString() }}"}
+          ]
+        }
+      },
+      "id": "airtable-update-store-settings",
+      "name": "🗄️ Airtable - Update Store",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [1260, 12350]
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "base": {"__rl": true, "value": "appELEVEA", "mode": "list"},
+        "table": {"__rl": true, "value": "store_settings", "mode": "list"},
+        "fieldsUi": {
+          "fieldValues": [
+            {"fieldName": "site", "fieldValue": "={{ $json.siteSlug }}"},
+            {"fieldName": "name", "fieldValue": "={{ $json.settings.name || 'Minha Loja' }}"},
+            {"fieldName": "currency", "fieldValue": "={{ $json.settings.currency || 'BRL' }}"},
+            {"fieldName": "paymentMethods", "fieldValue": "={{ JSON.stringify($json.settings.paymentMethods || ['pix','credit']) }}"},
+            {"fieldName": "shippingZones", "fieldValue": "={{ JSON.stringify($json.settings.shippingZones || []) }}"},
+            {"fieldName": "updatedAt", "fieldValue": "={{ new Date().toISOString() }}"}
+          ]
+        }
+      },
+      "id": "airtable-append-store-settings",
+      "name": "🗄️ Airtable - Append Store",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [1260, 12450]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { success: true, message: 'Configurações da loja salvas', timestamp: new Date().toISOString() } }}",
+        "options": {
+          "headers": {
+            "entries": [{"name": "Access-Control-Allow-Origin", "value": "*"}]
+          }
+        }
+      },
+      "id": "respond-store-settings",
+      "name": "📤 Respond - Store Settings",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [1460, 12300]
+    }
+  ],
+  "connections": {
+    "webhook-ecommerce-product-update": {
+      "main": [[{"node": "code-ecommerce-product-update-prep", "type": "main", "index": 0}]]
+    },
+    "code-ecommerce-product-update-prep": {
+      "main": [[{"node": "airtable-check-vip-product-update", "type": "main", "index": 0}]]
+    },
+    "airtable-check-vip-product-update": {
+      "main": [[{"node": "airtable-search-product-update", "type": "main", "index": 0}]]
+    },
+    "airtable-search-product-update": {
+      "main": [[{"node": "airtable-update-product", "type": "main", "index": 0}]]
+    },
+    "airtable-update-product": {
+      "main": [[{"node": "respond-product-update", "type": "main", "index": 0}]]
+    },
+    "webhook-ecommerce-product-delete": {
+      "main": [[{"node": "code-product-delete-prep", "type": "main", "index": 0}]]
+    },
+    "code-product-delete-prep": {
+      "main": [[{"node": "airtable-check-vip-product-delete", "type": "main", "index": 0}]]
+    },
+    "airtable-check-vip-product-delete": {
+      "main": [[{"node": "airtable-search-product-delete", "type": "main", "index": 0}]]
+    },
+    "airtable-search-product-delete": {
+      "main": [[{"node": "airtable-soft-delete-product", "type": "main", "index": 0}]]
+    },
+    "airtable-soft-delete-product": {
+      "main": [[{"node": "respond-product-delete", "type": "main", "index": 0}]]
+    },
+    "webhook-store-settings": {
+      "main": [[{"node": "code-store-settings-prep", "type": "main", "index": 0}]]
+    },
+    "code-store-settings-prep": {
+      "main": [[{"node": "if-store-action-get", "type": "main", "index": 0}]]
+    },
+    "if-store-action-get": {
+      "main": [
+        [{"node": "airtable-search-store-settings", "type": "main", "index": 0}],
+        [{"node": "airtable-search-store-for-update", "type": "main", "index": 0}]
+      ]
+    },
+    "airtable-search-store-settings": {
+      "main": [[{"node": "code-parse-store-settings", "type": "main", "index": 0}]]
+    },
+    "code-parse-store-settings": {
+      "main": [[{"node": "respond-store-settings", "type": "main", "index": 0}]]
+    },
+    "airtable-search-store-for-update": {
+      "main": [[{"node": "if-store-exists", "type": "main", "index": 0}]]
+    },
+    "if-store-exists": {
+      "main": [
+        [{"node": "airtable-update-store-settings", "type": "main", "index": 0}],
+        [{"node": "airtable-append-store-settings", "type": "main", "index": 0}]
+      ]
+    },
+    "airtable-update-store-settings": {
+      "main": [[{"node": "respond-store-settings", "type": "main", "index": 0}]]
+    },
+    "airtable-append-store-settings": {
+      "main": [[{"node": "respond-store-settings", "type": "main", "index": 0}]]
+    }
+  }
+}
+
