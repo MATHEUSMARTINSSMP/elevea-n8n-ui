@@ -1,0 +1,1678 @@
+{
+  "name": "ELEVEA N8N - Sistema Completo de Produção (CORRIGIDO)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "api/auth/login",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "webhook-auth-login",
+      "name": "🔐 Webhook - Login",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [260, 400],
+      "webhookId": "elevea-auth-login"
+    },
+    {
+      "parameters": {
+        "jsCode": "// 🔒 Validar chave de segurança\nconst out = [];\nconst VALID_KEY = 'elevea-super-secret-key-change-me';\n\nfor (const { json } of items) {\n  const headers = json.headers || {};\n  const key = headers['x-elevea-key'] || headers['authorization']?.replace('Bearer ', '');\n  \n  if (key !== VALID_KEY) {\n    out.push({\n      json: {\n        success: false,\n        error: 'Unauthorized - Invalid API key',\n        code: 401\n      },\n      pairedItem: { item: 0 }\n    });\n    continue;\n  }\n  \n  out.push({ json, pairedItem: { item: 0 } });\n}\nreturn out;"
+      },
+      "id": "code-validate-security-login",
+      "name": "🔒 Code - Validate Security",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [460, 400]
+    },
+    {
+      "parameters": {
+        "jsCode": "// 🔐 Validar Login\nconst out = [];\n\nfor (const { json } of items) {\n  const { email, password } = json.body || {};\n  \n  if (!email || !password) {\n    out.push({\n      json: {\n        success: false,\n        error: 'Email e senha são obrigatórios',\n        timestamp: new Date().toISOString()\n      }\n    });\n    continue;\n  }\n  \n  if (password.length < 6) {\n    out.push({\n      json: {\n        success: false,\n        error: 'Senha deve ter no mínimo 6 caracteres',\n        timestamp: new Date().toISOString()\n      }\n    });\n    continue;\n  }\n  \n  const emailLower = email.toLowerCase().trim();\n  const role = emailLower.includes('admin') ? 'admin' : 'client';\n  const siteSlug = emailLower.split('@')[0].replace(/[^a-z0-9]/gi, '-');\n  \n  out.push({\n    json: {\n      success: true,\n      user: {\n        email: emailLower,\n        role: role,\n        siteSlug: siteSlug\n      },\n      token: 'jwt_' + Buffer.from(emailLower + ':' + Date.now()).toString('base64'),\n      expiresIn: 86400,\n      timestamp: new Date().toISOString()\n    }\n  });\n}\nreturn out;"
+      },
+      "id": "code-validate-login",
+      "name": "🔐 Code - Validate Login",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [660, 400]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {}
+      },
+      "id": "respond-login",
+      "name": "📤 Respond - Login",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [860, 400]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "api/auth/reset-password",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "webhook-reset-password",
+      "name": "🔑 Webhook - Reset Password",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [260, 600],
+      "webhookId": "elevea-reset-password"
+    },
+    {
+      "parameters": {
+        "jsCode": "// 🔑 Generate Reset Link\nconst out = [];\n\nfor (const { json } of items) {\n  const email = json.body?.email || '';\n  \n  if (!email || !email.includes('@')) {\n    out.push({\n      json: {\n        success: false,\n        error: 'Email válido é obrigatório'\n      }\n    });\n    continue;\n  }\n  \n  const resetToken = require('crypto').randomBytes(32).toString('hex');\n  const resetLink = `https://agenciaelevea.netlify.app/reset?token=${resetToken}`;\n  const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();\n  \n  out.push({ \n    json: { \n      success: true,\n      email: email, \n      resetToken: resetToken, \n      resetLink: resetLink,\n      expiresAt: expiresAt,\n      timestamp: new Date().toISOString()\n    } \n  });\n}\nreturn out;"
+      },
+      "id": "code-generate-reset-link",
+      "name": "🔑 Code - Generate Reset Link",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [460, 600]
+    },
+    {
+      "parameters": {
+        "authentication": "oAuth2",
+        "resource": "message",
+        "operation": "send",
+        "sendTo": "={{ $json.email }}",
+        "subject": "🔑 Reset de Senha - ELEVEA",
+        "emailType": "text",
+        "message": "=Olá!\\n\\nRecebemos uma solicitação para resetar sua senha na plataforma ELEVEA.\\n\\nClique no link abaixo para criar uma nova senha:\\n{{ $json.resetLink }}\\n\\nEste link expira em 24 horas.\\n\\nSe você não solicitou, ignore este email.\\n\\n---\\nEquipe ELEVEA",
+        "options": {}
+      },
+      "id": "gmail-send-reset",
+      "name": "📧 Gmail - Send Reset",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [660, 600]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { success: true, message: 'Email de reset enviado', timestamp: new Date().toISOString() } }}",
+        "options": {}
+      },
+      "id": "respond-reset",
+      "name": "📤 Respond - Reset",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [860, 600]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "api/client/plan",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "webhook-client-plan",
+      "name": "📊 Webhook - Client Plan",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [260, 800],
+      "webhookId": "elevea-client-plan"
+    },
+    {
+      "parameters": {
+        "operation": "search",
+        "base": {
+          "__rl": true,
+          "value": "clients",
+          "mode": "list"
+        },
+        "table": {
+          "__rl": true,
+          "value": "clients",
+          "mode": "list"
+        },
+        "filterByFormula": "=AND({siteSlug}='{{ $json.body.siteSlug }}')",
+        "options": {}
+      },
+      "id": "airtable-search-client",
+      "name": "🗄️ Airtable - Search Client",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [460, 800]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { success: true, data: $json.fields || $json, timestamp: new Date().toISOString() } }}",
+        "options": {}
+      },
+      "id": "respond-plan",
+      "name": "📤 Respond - Plan",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [660, 800]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "api/whatsapp/send-bulk",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "webhook-whatsapp-bulk",
+      "name": "📱 Webhook - WhatsApp Bulk (Oficial)",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [260, 1000],
+      "webhookId": "elevea-whatsapp-bulk"
+    },
+    {
+      "parameters": {
+        "jsCode": "// 📱 Prepare WhatsApp Bulk\nconst out = [];\nconst WHATSAPP_PHONE_ID = 'SEU_PHONE_ID_AQUI';\nconst WHATSAPP_TOKEN = 'SEU_TOKEN_AQUI';\n\nfor (const { json } of items) {\n  const { siteSlug, recipients, message, mediaUrl } = json.body || {};\n  \n  if (!recipients || !Array.isArray(recipients) || recipients.length === 0) {\n    out.push({\n      json: {\n        success: false,\n        error: 'recipients deve ser um array não vazio'\n      }\n    });\n    continue;\n  }\n  \n  if (!message) {\n    out.push({\n      json: {\n        success: false,\n        error: 'message é obrigatório'\n      }\n    });\n    continue;\n  }\n  \n  for (const phone of recipients) {\n    out.push({\n      json: {\n        siteSlug: siteSlug || 'elevea-agencia',\n        phone: phone,\n        message: message,\n        mediaUrl: mediaUrl,\n        type: mediaUrl ? 'image' : 'text',\n        phoneId: WHATSAPP_PHONE_ID,\n        accessToken: WHATSAPP_TOKEN\n      }\n    });\n  }\n}\nreturn out;"
+      },
+      "id": "code-prepare-bulk",
+      "name": "📱 Code - Prepare Bulk",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [460, 1000]
+    },
+    {
+      "parameters": {
+        "url": "=https://graph.facebook.com/v18.0/{{ $json.phoneId }}/messages",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json.type === 'text' ? {\n  \"messaging_product\": \"whatsapp\",\n  \"to\": $json.phone,\n  \"type\": \"text\",\n  \"text\": { \"body\": $json.message }\n} : {\n  \"messaging_product\": \"whatsapp\",\n  \"to\": $json.phone,\n  \"type\": \"image\",\n  \"image\": { \"link\": $json.mediaUrl }\n} }}",
+        "options": {
+          "headers": {
+            "entries": [
+              {
+                "name": "Authorization",
+                "value": "=Bearer {{ $json.accessToken }}"
+              }
+            ]
+          }
+        }
+      },
+      "id": "http-whatsapp-business-send",
+      "name": "📱 HTTP - WhatsApp Business Send",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [660, 1000]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { success: true, sent: items.length, recipients: items.length, timestamp: new Date().toISOString() } }}",
+        "options": {}
+      },
+      "id": "respond-bulk",
+      "name": "📤 Respond - Bulk",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [860, 1000]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "api/whatsapp/send-ai",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "webhook-whatsapp-ai",
+      "name": "🤖 Webhook - WhatsApp AI (Evolution)",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [260, 1200],
+      "webhookId": "elevea-whatsapp-ai"
+    },
+    {
+      "parameters": {
+        "jsCode": "// 🤖 Prepare WhatsApp AI\nconst out = [];\nconst EVOLUTION_URL = 'http://seu-servidor:8080';\nconst EVOLUTION_KEY = 'sua-api-key';\nconst EVOLUTION_INSTANCE = 'elevea-instance';\nconst OPENAI_KEY = 'sk-proj-xxxx';\n\nfor (const { json } of items) {\n  const { siteSlug, phone, message, useAI, context } = json.body || {};\n  \n  if (!phone || !message) {\n    out.push({\n      json: {\n        success: false,\n        error: 'phone e message são obrigatórios'\n      }\n    });\n    continue;\n  }\n  \n  out.push({\n    json: {\n      siteSlug: siteSlug || 'elevea-agencia',\n      phone: phone,\n      message: message,\n      useAI: useAI || false,\n      context: context || 'Cliente da ELEVEA',\n      evolutionUrl: EVOLUTION_URL,\n      evolutionKey: EVOLUTION_KEY,\n      instanceName: EVOLUTION_INSTANCE,\n      openaiKey: OPENAI_KEY\n    }\n  });\n}\nreturn out;"
+      },
+      "id": "code-prepare-ai",
+      "name": "🤖 Code - Prepare AI",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [460, 1200]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json.useAI }}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "if-use-ai",
+      "name": "❓ IF - Use AI",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [660, 1200]
+    },
+    {
+      "parameters": {
+        "url": "https://api.openai.com/v1/chat/completions",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ {\n  \"model\": \"gpt-4o-mini\",\n  \"messages\": [\n    {\n      \"role\": \"system\",\n      \"content\": \"Você é um assistente virtual da ELEVEA, agência de marketing digital. Seja educado e profissional. Contexto: \" + $json.context\n    },\n    {\n      \"role\": \"user\",\n      \"content\": $json.message\n    }\n  ],\n  \"temperature\": 0.7,\n  \"max_tokens\": 500\n} }}",
+        "options": {
+          "headers": {
+            "entries": [
+              {
+                "name": "Authorization",
+                "value": "=Bearer {{ $json.openaiKey }}"
+              }
+            ]
+          }
+        }
+      },
+      "id": "http-openai-chat",
+      "name": "🧠 HTTP - OpenAI Chat",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [860, 1150]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Format AI Response para Evolution\nconst out = [];\nconst prevItem = $input.first()?.json || {};\n\nfor (const { json } of items) {\n  const aiMessage = json.choices?.[0]?.message?.content || 'Desculpe, não consegui processar.';\n  \n  out.push({\n    json: {\n      phone: prevItem.phone,\n      message: aiMessage,\n      evolutionUrl: prevItem.evolutionUrl,\n      evolutionKey: prevItem.evolutionKey,\n      instanceName: prevItem.instanceName,\n      siteSlug: prevItem.siteSlug,\n      aiGenerated: true\n    }\n  });\n}\nreturn out;"
+      },
+      "id": "code-format-ai-response",
+      "name": "🤖 Code - Format AI Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1060, 1150]
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.evolutionUrl }}/message/sendText/{{ $json.instanceName }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ {\n  \"number\": $json.phone,\n  \"text\": $json.message\n} }}",
+        "options": {
+          "headers": {
+            "entries": [
+              {
+                "name": "apikey",
+                "value": "={{ $json.evolutionKey }}"
+              }
+            ]
+          }
+        }
+      },
+      "id": "http-evolution-send-ai",
+      "name": "🤖 HTTP - Evolution Send (AI)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1260, 1150]
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.evolutionUrl }}/message/sendText/{{ $json.instanceName }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ {\n  \"number\": $json.phone,\n  \"text\": $json.message\n} }}",
+        "options": {
+          "headers": {
+            "entries": [
+              {
+                "name": "apikey",
+                "value": "={{ $json.evolutionKey }}"
+              }
+            ]
+          }
+        }
+      },
+      "id": "http-evolution-send-direct",
+      "name": "📱 HTTP - Evolution Send (Direct)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [860, 1250]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { success: true, sent: true, aiUsed: $json.aiGenerated || false, timestamp: new Date().toISOString() } }}",
+        "options": {}
+      },
+      "id": "respond-ai",
+      "name": "📤 Respond - AI",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [1060, 1250]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "api/feedback/submit",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "webhook-feedback",
+      "name": "💬 Webhook - Feedback",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [260, 1450],
+      "webhookId": "elevea-feedback"
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "base": {
+          "__rl": true,
+          "value": "feedbacks",
+          "mode": "list"
+        },
+        "table": {
+          "__rl": true,
+          "value": "feedbacks",
+          "mode": "list"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "siteSlug": "={{ $json.body.siteSlug }}",
+            "name": "={{ $json.body.name }}",
+            "email": "={{ $json.body.email || '' }}",
+            "phone": "={{ $json.body.phone || '' }}",
+            "rating": "={{ $json.body.rating }}",
+            "comment": "={{ $json.body.comment }}",
+            "status": "pending",
+            "createdAt": "={{ new Date().toISOString() }}"
+          }
+        },
+        "options": {}
+      },
+      "id": "airtable-insert-feedback",
+      "name": "💬 Airtable - Insert Feedback",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [460, 1450]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { success: true, message: 'Feedback recebido', id: $json.id, timestamp: new Date().toISOString() } }}",
+        "options": {}
+      },
+      "id": "respond-feedback",
+      "name": "📤 Respond - Feedback",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [660, 1450]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "api/admin/toggle-block",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "webhook-admin-toggle",
+      "name": "🔧 Webhook - Admin Toggle",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [260, 1650],
+      "webhookId": "elevea-admin-toggle"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.body.action }}",
+              "value2": "block"
+            }
+          ]
+        }
+      },
+      "id": "if-block-action",
+      "name": "❓ IF - Block Action",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [460, 1650]
+    },
+    {
+      "parameters": {
+        "jsCode": "// 🚫 Block Client\nconst out = [];\nfor (const { json } of items) {\n  const siteSlug = json.body?.siteSlug || json.siteSlug;\n  \n  if (!siteSlug) {\n    out.push({\n      json: {\n        success: false,\n        error: 'siteSlug é obrigatório'\n      }\n    });\n    continue;\n  }\n  \n  out.push({ \n    json: {\n      siteSlug: siteSlug,\n      status: 'blocked',\n      manualBlock: true,\n      blockedAt: new Date().toISOString(),\n      reason: 'Bloqueio manual via admin',\n      action: 'block_client',\n      needsUpdate: true\n    }\n  });\n}\nreturn out;"
+      },
+      "id": "code-block-client",
+      "name": "🚫 Code - Block Client",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [660, 1600]
+    },
+    {
+      "parameters": {
+        "jsCode": "// ✅ Unblock Client\nconst out = [];\nfor (const { json } of items) {\n  const siteSlug = json.body?.siteSlug || json.siteSlug;\n  \n  if (!siteSlug) {\n    out.push({\n      json: {\n        success: false,\n        error: 'siteSlug é obrigatório'\n      }\n    });\n    continue;\n  }\n  \n  out.push({ \n    json: {\n      siteSlug: siteSlug,\n      status: 'active',\n      manualBlock: false,\n      unblockedAt: new Date().toISOString(),\n      reason: 'Desbloqueio manual via admin',\n      action: 'unblock_client',\n      needsUpdate: true\n    }\n  });\n}\nreturn out;"
+      },
+      "id": "code-unblock-client",
+      "name": "✅ Code - Unblock Client",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [660, 1700]
+    },
+    {
+      "parameters": {
+        "operation": "search",
+        "base": {
+          "__rl": true,
+          "value": "clients",
+          "mode": "list"
+        },
+        "table": {
+          "__rl": true,
+          "value": "clients",
+          "mode": "list"
+        },
+        "filterByFormula": "=AND({siteSlug}='{{ $json.siteSlug }}')",
+        "options": {}
+      },
+      "id": "airtable-find-client-for-update",
+      "name": "🔍 Airtable - Find Client",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [860, 1650]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "base": {
+          "__rl": true,
+          "value": "clients",
+          "mode": "list"
+        },
+        "table": {
+          "__rl": true,
+          "value": "clients",
+          "mode": "list"
+        },
+        "id": "={{ $json.id }}",
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "status": "={{ $items('code-block-client')[0]?.json?.status || $items('code-unblock-client')[0]?.json?.status }}",
+            "manualBlock": "={{ $items('code-block-client')[0]?.json?.manualBlock || $items('code-unblock-client')[0]?.json?.manualBlock }}",
+            "updatedAt": "={{ new Date().toISOString() }}"
+          }
+        },
+        "options": {}
+      },
+      "id": "airtable-update-client-status",
+      "name": "🔧 Airtable - Update Status",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [1060, 1650]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { success: true, action: $items('code-block-client')[0]?.json?.action || $items('code-unblock-client')[0]?.json?.action, siteSlug: $json.fields?.siteSlug, timestamp: new Date().toISOString() } }}",
+        "options": {}
+      },
+      "id": "respond-admin",
+      "name": "📤 Respond - Admin",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [1260, 1650]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "api/mercadopago/webhook",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "webhook-mercadopago",
+      "name": "💰 Webhook - Mercado Pago",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [260, 1850],
+      "webhookId": "elevea-mercadopago"
+    },
+    {
+      "parameters": {
+        "jsCode": "// 💰 Process Mercado Pago Webhook\nconst out = [];\nconst TELEGRAM_TOKEN = 'SEU_BOT_TOKEN';\nconst TELEGRAM_CHAT = 'SEU_CHAT_ID';\n\nfor (const { json } of items) {\n  const body = json.body || {};\n  const { type, action, data } = body;\n  \n  const eventType = type || action;\n  const externalRef = data?.external_reference;\n  \n  if (!externalRef) {\n    out.push({\n      json: {\n        success: false,\n        error: 'external_reference não encontrado no webhook',\n        raw: body,\n        timestamp: new Date().toISOString()\n      }\n    });\n    continue;\n  }\n  \n  if (eventType === 'subscription_authorized' || eventType === 'authorized') {\n    out.push({ \n      json: {\n        siteSlug: externalRef,\n        status: 'active',\n        plan: 'vip',\n        preapproval_id: data?.id || data?.preapproval_id,\n        action: 'subscription_activated',\n        amount: data?.auto_recurring?.transaction_amount || 0,\n        telegramToken: TELEGRAM_TOKEN,\n        telegramChatId: TELEGRAM_CHAT,\n        timestamp: new Date().toISOString()\n      }\n    });\n  } else if (eventType === 'subscription_paused' || eventType === 'paused') {\n    out.push({ \n      json: {\n        siteSlug: externalRef,\n        status: 'paused',\n        plan: 'essential',\n        action: 'subscription_paused',\n        telegramToken: TELEGRAM_TOKEN,\n        telegramChatId: TELEGRAM_CHAT,\n        timestamp: new Date().toISOString()\n      }\n    });\n  } else if (eventType === 'subscription_cancelled' || eventType === 'cancelled') {\n    out.push({ \n      json: {\n        siteSlug: externalRef,\n        status: 'blocked',\n        plan: 'essential',\n        action: 'subscription_cancelled',\n        telegramToken: TELEGRAM_TOKEN,\n        telegramChatId: TELEGRAM_CHAT,\n        timestamp: new Date().toISOString()\n      }\n    });\n  } else {\n    out.push({ \n      json: {\n        action: 'unknown_event',\n        event_type: eventType,\n        siteSlug: externalRef,\n        telegramToken: TELEGRAM_TOKEN,\n        telegramChatId: TELEGRAM_CHAT,\n        data: data\n      }\n    });\n  }\n}\nreturn out;"
+      },
+      "id": "code-process-mercadopago",
+      "name": "💰 Code - Process Mercado Pago",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [460, 1850]
+    },
+    {
+      "parameters": {
+        "operation": "search",
+        "base": {
+          "__rl": true,
+          "value": "clients",
+          "mode": "list"
+        },
+        "table": {
+          "__rl": true,
+          "value": "clients",
+          "mode": "list"
+        },
+        "filterByFormula": "=AND({siteSlug}='{{ $json.siteSlug }}')",
+        "options": {}
+      },
+      "id": "airtable-find-client-mp",
+      "name": "🔍 Airtable - Find Client (MP)",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [660, 1850]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "base": {
+          "__rl": true,
+          "value": "clients",
+          "mode": "list"
+        },
+        "table": {
+          "__rl": true,
+          "value": "clients",
+          "mode": "list"
+        },
+        "id": "={{ $json.id }}",
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "status": "={{ $items('code-process-mercadopago')[0]?.json?.status }}",
+            "plan": "={{ $items('code-process-mercadopago')[0]?.json?.plan }}",
+            "preapproval_id": "={{ $items('code-process-mercadopago')[0]?.json?.preapproval_id }}",
+            "updatedAt": "={{ new Date().toISOString() }}"
+          }
+        },
+        "options": {}
+      },
+      "id": "airtable-update-billing",
+      "name": "💰 Airtable - Update Billing",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [860, 1850]
+    },
+    {
+      "parameters": {
+        "url": "=https://api.telegram.org/bot{{ $items('code-process-mercadopago')[0].json.telegramToken }}/sendMessage",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ {\n  \"chat_id\": $items('code-process-mercadopago')[0].json.telegramChatId,\n  \"text\": \"💰 *Mercado Pago - \" + ($items('code-process-mercadopago')[0].json.action || 'evento').toUpperCase() + \"*\\n\\n*Cliente:* \" + $items('code-process-mercadopago')[0].json.siteSlug + \"\\n*Plano:* \" + $items('code-process-mercadopago')[0].json.plan + \"\\n*Status:* \" + $items('code-process-mercadopago')[0].json.status + \"\\n*Timestamp:* \" + $items('code-process-mercadopago')[0].json.timestamp,\n  \"parse_mode\": \"Markdown\"\n} }}",
+        "options": {}
+      },
+      "id": "http-telegram-mp-alert",
+      "name": "🔔 HTTP - Telegram MP Alert",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1060, 1850]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { success: true, action: $items('code-process-mercadopago')[0]?.json?.action, timestamp: new Date().toISOString() } }}",
+        "options": {}
+      },
+      "id": "respond-mp",
+      "name": "📤 Respond - MP",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [1260, 1850]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "api/leads/capture",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "webhook-leads",
+      "name": "🎯 Webhook - Leads",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [260, 2050],
+      "webhookId": "elevea-leads"
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "base": {
+          "__rl": true,
+          "value": "leads",
+          "mode": "list"
+        },
+        "table": {
+          "__rl": true,
+          "value": "leads",
+          "mode": "list"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "siteSlug": "={{ $json.body.siteSlug }}",
+            "name": "={{ $json.body.name }}",
+            "email": "={{ $json.body.email }}",
+            "phone": "={{ $json.body.phone || '' }}",
+            "source": "={{ $json.body.source || 'website' }}",
+            "status": "new",
+            "score": "={{ $json.body.score || 50 }}",
+            "createdAt": "={{ new Date().toISOString() }}"
+          }
+        },
+        "options": {}
+      },
+      "id": "airtable-insert-lead",
+      "name": "🎯 Airtable - Insert Lead",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [460, 2050]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { success: true, message: 'Lead capturado', leadId: $json.id, timestamp: new Date().toISOString() } }}",
+        "options": {}
+      },
+      "id": "respond-leads",
+      "name": "📤 Respond - Leads",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [660, 2050]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "api/onboarding/save",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "webhook-onboarding",
+      "name": "📝 Webhook - Onboarding",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [260, 2250],
+      "webhookId": "elevea-onboarding"
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "base": {
+          "__rl": true,
+          "value": "onboardings",
+          "mode": "list"
+        },
+        "table": {
+          "__rl": true,
+          "value": "onboardings",
+          "mode": "list"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "siteSlug": "={{ $json.body.siteSlug }}",
+            "formData": "={{ JSON.stringify($json.body.formData || {}) }}",
+            "status": "pending",
+            "createdAt": "={{ new Date().toISOString() }}"
+          }
+        },
+        "options": {}
+      },
+      "id": "airtable-insert-onboarding",
+      "name": "📝 Airtable - Insert Onboarding",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [460, 2250]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { success: true, message: 'Onboarding salvo', siteSlug: $json.fields?.siteSlug, timestamp: new Date().toISOString() } }}",
+        "options": {}
+      },
+      "id": "respond-onboarding",
+      "name": "📤 Respond - Onboarding",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [660, 2250]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "api/google/reviews/list",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "webhook-reviews",
+      "name": "⭐ Webhook - Reviews",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [260, 2450],
+      "webhookId": "elevea-reviews"
+    },
+    {
+      "parameters": {
+        "operation": "search",
+        "base": {
+          "__rl": true,
+          "value": "reviews",
+          "mode": "list"
+        },
+        "table": {
+          "__rl": true,
+          "value": "reviews",
+          "mode": "list"
+        },
+        "filterByFormula": "=AND({siteSlug}='{{ $json.body.siteSlug }}')",
+        "options": {
+          "sort": [
+            {
+              "field": "date",
+              "direction": "desc"
+            }
+          ],
+          "maxRecords": 20
+        }
+      },
+      "id": "airtable-get-reviews",
+      "name": "⭐ Airtable - Get Reviews",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [460, 2450]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { success: true, data: { reviews: items.map(i => i.json.fields || i.json) }, count: items.length, timestamp: new Date().toISOString() } }}",
+        "options": {}
+      },
+      "id": "respond-reviews",
+      "name": "📤 Respond - Reviews",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [660, 2450]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 10
+            }
+          ]
+        }
+      },
+      "id": "schedule-token-refresh",
+      "name": "⏰ Schedule - Token Refresh (10min)",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [260, 2650]
+    },
+    {
+      "parameters": {
+        "operation": "search",
+        "base": {
+          "__rl": true,
+          "value": "tokens",
+          "mode": "list"
+        },
+        "table": {
+          "__rl": true,
+          "value": "tokens",
+          "mode": "list"
+        },
+        "options": {}
+      },
+      "id": "airtable-get-all-tokens",
+      "name": "🔑 Airtable - Get All Tokens",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [460, 2650]
+    },
+    {
+      "parameters": {
+        "jsCode": "// 🔑 Filter Expiring Tokens (< 24h)\nconst out = [];\n\nfor (const { json } of items) {\n  try {\n    const fields = json.fields || {};\n    const expiresAt = new Date(fields.expires_at || 0);\n    const now = new Date();\n    const hoursLeft = (expiresAt - now) / (1000 * 60 * 60);\n    \n    if (hoursLeft > 0 && hoursLeft < 24 && fields.refresh_token && fields.provider === 'google') {\n      out.push({ \n        json: {\n          id: json.id,\n          siteSlug: fields.siteSlug,\n          provider: fields.provider,\n          refresh_token: fields.refresh_token,\n          hoursLeft: Math.round(hoursLeft * 10) / 10\n        }\n      });\n    }\n  } catch (error) {\n    // Skip tokens inválidos\n  }\n}\nreturn out;"
+      },
+      "id": "code-filter-expiring",
+      "name": "🔑 Code - Filter Expiring",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [660, 2650]
+    },
+    {
+      "parameters": {
+        "url": "https://oauth2.googleapis.com/token",
+        "sendBody": true,
+        "contentType": "form-urlencoded",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "grant_type",
+              "value": "refresh_token"
+            },
+            {
+              "name": "refresh_token",
+              "value": "={{ $json.refresh_token }}"
+            },
+            {
+              "name": "client_id",
+              "value": "SEU_GOOGLE_CLIENT_ID.apps.googleusercontent.com"
+            },
+            {
+              "name": "client_secret",
+              "value": "GOCSPX-SEU_CLIENT_SECRET"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "http-refresh-token",
+      "name": "🔄 HTTP - Refresh Google Token",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [860, 2650]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "base": {
+          "__rl": true,
+          "value": "tokens",
+          "mode": "list"
+        },
+        "table": {
+          "__rl": true,
+          "value": "tokens",
+          "mode": "list"
+        },
+        "id": "={{ $items('code-filter-expiring')[0].json.id }}",
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "access_token": "={{ $json.access_token }}",
+            "expires_at": "={{ new Date(Date.now() + ($json.expires_in * 1000)).toISOString() }}",
+            "updatedAt": "={{ new Date().toISOString() }}"
+          }
+        },
+        "options": {}
+      },
+      "id": "airtable-update-token",
+      "name": "🔑 Airtable - Update Token",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [1060, 2650]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "hoursInterval": 24,
+              "triggerAtHour": 6
+            }
+          ]
+        }
+      },
+      "id": "schedule-billing-check",
+      "name": "⏰ Schedule - Billing Check (6AM)",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [260, 2850]
+    },
+    {
+      "parameters": {
+        "operation": "search",
+        "base": {
+          "__rl": true,
+          "value": "clients",
+          "mode": "list"
+        },
+        "table": {
+          "__rl": true,
+          "value": "clients",
+          "mode": "list"
+        },
+        "filterByFormula": "=AND({status}='active',{plan}='vip',{preapproval_id}!='')",
+        "options": {}
+      },
+      "id": "airtable-get-active-vip",
+      "name": "💳 Airtable - Get Active VIP Clients",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [460, 2850]
+    },
+    {
+      "parameters": {
+        "jsCode": "// 💳 Prepare Billing Check\nconst out = [];\nconst MP_TOKEN = 'APP_USR-SEU_TOKEN_MERCADOPAGO';\n\nfor (const { json } of items) {\n  const fields = json.fields || {};\n  const preapprovalId = fields.preapproval_id;\n  \n  if (!preapprovalId) continue;\n  \n  out.push({\n    json: {\n      id: json.id,\n      siteSlug: fields.siteSlug,\n      email: fields.email,\n      preapprovalId: preapprovalId,\n      mpToken: MP_TOKEN\n    }\n  });\n}\nreturn out;"
+      },
+      "id": "code-prepare-billing-check",
+      "name": "💳 Code - Prepare Billing Check",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [660, 2850]
+    },
+    {
+      "parameters": {
+        "url": "=https://api.mercadopago.com/preapproval/{{ $json.preapprovalId }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {
+          "headers": {
+            "entries": [
+              {
+                "name": "Authorization",
+                "value": "=Bearer {{ $json.mpToken }}"
+              }
+            ]
+          }
+        }
+      },
+      "id": "http-mp-check",
+      "name": "💰 HTTP - MP Check",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [860, 2850]
+    },
+    {
+      "parameters": {
+        "jsCode": "// 💳 Analyze Billing\nconst out = [];\nconst prevItem = $input.first()?.json || {};\n\nfor (const { json } of items) {\n  const status = json.status;\n  const shouldBlock = (status === 'paused' || status === 'cancelled' || status !== 'authorized');\n  \n  out.push({\n    json: {\n      id: prevItem.id,\n      siteSlug: prevItem.siteSlug,\n      shouldBlock: shouldBlock,\n      newStatus: shouldBlock ? 'blocked' : 'active',\n      newPlan: shouldBlock ? 'essential' : 'vip',\n      mpStatus: status,\n      reason: shouldBlock ? 'Status MP: ' + status : 'OK'\n    }\n  });\n}\nreturn out;"
+      },
+      "id": "code-analyze-billing",
+      "name": "💳 Code - Analyze Billing",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1060, 2850]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json.shouldBlock }}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "if-should-block",
+      "name": "❓ IF - Should Block",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1260, 2850]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "base": {
+          "__rl": true,
+          "value": "clients",
+          "mode": "list"
+        },
+        "table": {
+          "__rl": true,
+          "value": "clients",
+          "mode": "list"
+        },
+        "id": "={{ $json.id }}",
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "status": "={{ $json.newStatus }}",
+            "plan": "={{ $json.newPlan }}",
+            "updatedAt": "={{ new Date().toISOString() }}"
+          }
+        },
+        "options": {}
+      },
+      "id": "airtable-block-overdue",
+      "name": "🚫 Airtable - Block Overdue",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [1460, 2800]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "hoursInterval": 24,
+              "triggerAtHour": 2
+            }
+          ]
+        }
+      },
+      "id": "schedule-backup",
+      "name": "⏰ Schedule - Backup (2AM)",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [260, 3050]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "msg",
+              "name": "message",
+              "value": "=✅ *Backup Diário ELEVEA*\\n\\nData: {{ new Date().toISOString().split('T')[0] }}\\nHora: {{ new Date().toLocaleTimeString('pt-BR') }}\\n\\nTodos os dados do Airtable estão seguros.\\n\\nTabelas:\\n• clients\\n• feedbacks\\n• leads\\n• tokens\\n• reviews\\n• onboardings",
+              "type": "string"
+            },
+            {
+              "id": "telegram_token",
+              "name": "telegramToken",
+              "value": "SEU_BOT_TOKEN",
+              "type": "string"
+            },
+            {
+              "id": "telegram_chat",
+              "name": "telegramChatId",
+              "value": "SEU_CHAT_ID",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "id": "set-backup-message",
+      "name": "💾 Set - Backup Message",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.3,
+      "position": [460, 3050]
+    },
+    {
+      "parameters": {
+        "url": "=https://api.telegram.org/bot{{ $json.telegramToken }}/sendMessage",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ {\n  \"chat_id\": $json.telegramChatId,\n  \"text\": $json.message,\n  \"parse_mode\": \"Markdown\"\n} }}",
+        "options": {}
+      },
+      "id": "http-telegram-backup-alert",
+      "name": "🔔 HTTP - Telegram Backup Alert",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [660, 3050]
+    }
+  ],
+  "connections": {
+    "webhook-auth-login": {
+      "main": [
+        [
+          {
+            "node": "code-validate-security-login",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "code-validate-security-login": {
+      "main": [
+        [
+          {
+            "node": "code-validate-login",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "code-validate-login": {
+      "main": [
+        [
+          {
+            "node": "respond-login",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "webhook-reset-password": {
+      "main": [
+        [
+          {
+            "node": "code-generate-reset-link",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "code-generate-reset-link": {
+      "main": [
+        [
+          {
+            "node": "gmail-send-reset",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "gmail-send-reset": {
+      "main": [
+        [
+          {
+            "node": "respond-reset",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "webhook-client-plan": {
+      "main": [
+        [
+          {
+            "node": "airtable-search-client",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "airtable-search-client": {
+      "main": [
+        [
+          {
+            "node": "respond-plan",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "webhook-whatsapp-bulk": {
+      "main": [
+        [
+          {
+            "node": "code-prepare-bulk",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "code-prepare-bulk": {
+      "main": [
+        [
+          {
+            "node": "http-whatsapp-business-send",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "http-whatsapp-business-send": {
+      "main": [
+        [
+          {
+            "node": "respond-bulk",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "webhook-whatsapp-ai": {
+      "main": [
+        [
+          {
+            "node": "code-prepare-ai",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "code-prepare-ai": {
+      "main": [
+        [
+          {
+            "node": "if-use-ai",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "if-use-ai": {
+      "main": [
+        [
+          {
+            "node": "http-openai-chat",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "http-evolution-send-direct",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "http-openai-chat": {
+      "main": [
+        [
+          {
+            "node": "code-format-ai-response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "code-format-ai-response": {
+      "main": [
+        [
+          {
+            "node": "http-evolution-send-ai",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "http-evolution-send-ai": {
+      "main": [
+        [
+          {
+            "node": "respond-ai",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "http-evolution-send-direct": {
+      "main": [
+        [
+          {
+            "node": "respond-ai",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "webhook-feedback": {
+      "main": [
+        [
+          {
+            "node": "airtable-insert-feedback",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "airtable-insert-feedback": {
+      "main": [
+        [
+          {
+            "node": "respond-feedback",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "webhook-admin-toggle": {
+      "main": [
+        [
+          {
+            "node": "if-block-action",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "if-block-action": {
+      "main": [
+        [
+          {
+            "node": "code-block-client",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "code-unblock-client",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "code-block-client": {
+      "main": [
+        [
+          {
+            "node": "airtable-find-client-for-update",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "code-unblock-client": {
+      "main": [
+        [
+          {
+            "node": "airtable-find-client-for-update",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "airtable-find-client-for-update": {
+      "main": [
+        [
+          {
+            "node": "airtable-update-client-status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "airtable-update-client-status": {
+      "main": [
+        [
+          {
+            "node": "respond-admin",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "webhook-mercadopago": {
+      "main": [
+        [
+          {
+            "node": "code-process-mercadopago",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "code-process-mercadopago": {
+      "main": [
+        [
+          {
+            "node": "airtable-find-client-mp",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "airtable-find-client-mp": {
+      "main": [
+        [
+          {
+            "node": "airtable-update-billing",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "airtable-update-billing": {
+      "main": [
+        [
+          {
+            "node": "http-telegram-mp-alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "http-telegram-mp-alert": {
+      "main": [
+        [
+          {
+            "node": "respond-mp",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "webhook-leads": {
+      "main": [
+        [
+          {
+            "node": "airtable-insert-lead",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "airtable-insert-lead": {
+      "main": [
+        [
+          {
+            "node": "respond-leads",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "webhook-onboarding": {
+      "main": [
+        [
+          {
+            "node": "airtable-insert-onboarding",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "airtable-insert-onboarding": {
+      "main": [
+        [
+          {
+            "node": "respond-onboarding",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "webhook-reviews": {
+      "main": [
+        [
+          {
+            "node": "airtable-get-reviews",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "airtable-get-reviews": {
+      "main": [
+        [
+          {
+            "node": "respond-reviews",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "schedule-token-refresh": {
+      "main": [
+        [
+          {
+            "node": "airtable-get-all-tokens",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "airtable-get-all-tokens": {
+      "main": [
+        [
+          {
+            "node": "code-filter-expiring",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "code-filter-expiring": {
+      "main": [
+        [
+          {
+            "node": "http-refresh-token",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "http-refresh-token": {
+      "main": [
+        [
+          {
+            "node": "airtable-update-token",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "schedule-billing-check": {
+      "main": [
+        [
+          {
+            "node": "airtable-get-active-vip",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "airtable-get-active-vip": {
+      "main": [
+        [
+          {
+            "node": "code-prepare-billing-check",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "code-prepare-billing-check": {
+      "main": [
+        [
+          {
+            "node": "http-mp-check",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "http-mp-check": {
+      "main": [
+        [
+          {
+            "node": "code-analyze-billing",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "code-analyze-billing": {
+      "main": [
+        [
+          {
+            "node": "if-should-block",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "if-should-block": {
+      "main": [
+        [
+          {
+            "node": "airtable-block-overdue",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "schedule-backup": {
+      "main": [
+        [
+          {
+            "node": "set-backup-message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "set-backup-message": {
+      "main": [
+        [
+          {
+            "node": "http-telegram-backup-alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "staticData": null,
+  "tags": [
+    {
+      "createdAt": "2025-01-07T00:00:00.000Z",
+      "updatedAt": "2025-01-07T00:00:00.000Z",
+      "id": "elevea-prod",
+      "name": "ELEVEA Production"
+    }
+  ],
+  "triggerCount": 0,
+  "updatedAt": "2025-01-07T00:00:00.000Z",
+  "versionId": "FINAL-V4.0-CONNECTIONS-FIXED",
+  "id": "elevea-n8n-complete"
+}

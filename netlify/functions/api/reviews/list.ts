@@ -23,15 +23,18 @@ const handler: Handler = async (event, context) => {
       };
     }
 
-    // Chamada para n8n
-    const n8nResponse = await fetch(`${process.env.N8N_BASE_URL}/webhook/reviews/list`, {
+    // Chamada para n8n com endpoint CORRETO
+    const n8nResponse = await fetch(`${process.env.N8N_BASE_URL}/webhook/api/google/reviews/list`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${process.env.N8N_SIGNING_SECRET}`,
+        'x-elevea-key': process.env.N8N_SIGNING_SECRET,
       },
       body: JSON.stringify({
-        siteSlug,
+        body: {
+          siteSlug,
+        },
         timestamp: new Date().toISOString(),
       }),
     });
@@ -45,7 +48,7 @@ const handler: Handler = async (event, context) => {
     return {
       statusCode: 200,
       headers,
-      body: JSON.stringify({ success: true, data }),
+      body: JSON.stringify(data),
     };
   } catch (error) {
     console.error('Error in reviews/list:', error);

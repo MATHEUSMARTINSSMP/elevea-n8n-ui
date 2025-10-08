@@ -6,7 +6,15 @@ export const API_CONFIG = {
     clientPlan: '/client_plan',
     authStatus: '/auth_status',
     
-    // WhatsApp
+    // WhatsApp Business API (Oficial - Disparos em massa)
+    whatsappBulkSend: '/whatsapp/send-bulk',
+    
+    // Evolution API (Não oficial - Mensagens com IA)
+    whatsappAISend: '/whatsapp/send-ai',
+    whatsappGetMessages: '/whatsapp/get-messages',
+    whatsappEvolutionWebhook: '/whatsapp/evolution-webhook',
+    
+    // WhatsApp - endpoints legados (compatibilidade)
     waList: '/wa/list',
     waSend: '/wa/send',
     
@@ -27,6 +35,9 @@ export const API_CONFIG = {
     
     // Templates
     templates: '/templates',
+    
+    // Leads
+    leadsCapture: '/leads/capture',
   },
 } as const;
 
@@ -76,13 +87,27 @@ export const api = {
       body: JSON.stringify({ siteSlug }),
     }),
 
-  // WhatsApp
-  getWhatsAppMessages: (siteSlug: string) =>
-    apiRequest(API_CONFIG.endpoints.waList, {
+  // WhatsApp Business API (Oficial) - Disparos em Massa
+  sendWhatsAppBulk: (siteSlug: string, recipients: string[], message: string, mediaUrl?: string) =>
+    apiRequest(API_CONFIG.endpoints.whatsappBulkSend, {
       method: 'POST',
-      body: JSON.stringify({ siteSlug }),
+      body: JSON.stringify({ siteSlug, recipients, message, mediaUrl }),
     }),
 
+  // Evolution API (Não oficial) - Mensagens com IA
+  sendWhatsAppWithAI: (siteSlug: string, phone: string, message: string, useAI: boolean = false, context?: string) =>
+    apiRequest(API_CONFIG.endpoints.whatsappAISend, {
+      method: 'POST',
+      body: JSON.stringify({ siteSlug, phone, message, useAI, context }),
+    }),
+
+  getWhatsAppMessages: (siteSlug: string, phone?: string, limit?: number) =>
+    apiRequest(API_CONFIG.endpoints.whatsappGetMessages, {
+      method: 'POST',
+      body: JSON.stringify({ siteSlug, phone, limit }),
+    }),
+
+  // WhatsApp - Funções legadas (compatibilidade)
   sendWhatsAppMessage: (siteSlug: string, message: string, phone?: string) =>
     apiRequest(API_CONFIG.endpoints.waSend, {
       method: 'POST',
@@ -109,7 +134,7 @@ export const api = {
       body: JSON.stringify({ siteSlug }),
     }),
 
-  submitFeedback: (siteSlug: string, feedback: { name: string; rating: number; comment: string }) =>
+  submitFeedback: (siteSlug: string, feedback: { name: string; rating: number; comment: string; email?: string; phone?: string }) =>
     apiRequest(API_CONFIG.endpoints.feedbacksSubmit, {
       method: 'POST',
       body: JSON.stringify({ siteSlug, ...feedback }),
@@ -138,4 +163,11 @@ export const api = {
   // Templates
   getTemplates: () =>
     apiRequest(API_CONFIG.endpoints.templates),
+
+  // Leads
+  captureL: (siteSlug: string, lead: { name: string; email: string; phone?: string; source?: string; score?: number }) =>
+    apiRequest(API_CONFIG.endpoints.leadsCapture, {
+      method: 'POST',
+      body: JSON.stringify({ siteSlug, ...lead }),
+    }),
 };

@@ -1,7 +1,6 @@
 import { Handler } from '@netlify/functions';
 
 const handler: Handler = async (event, context) => {
-  // CORS headers
   const headers = {
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Headers': 'Content-Type',
@@ -9,7 +8,6 @@ const handler: Handler = async (event, context) => {
     'Content-Type': 'application/json',
   };
 
-  // Handle preflight requests
   if (event.httpMethod === 'OPTIONS') {
     return { statusCode: 200, headers, body: '' };
   }
@@ -25,15 +23,18 @@ const handler: Handler = async (event, context) => {
       };
     }
 
-    // Chamada para n8n
-    const n8nResponse = await fetch(`${process.env.N8N_BASE_URL}/webhook/client_plan`, {
+    // Chamada para n8n com endpoint CORRETO
+    const n8nResponse = await fetch(`${process.env.N8N_BASE_URL}/webhook/api/client/plan`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${process.env.N8N_SIGNING_SECRET}`,
+        'x-elevea-key': process.env.N8N_SIGNING_SECRET,
       },
       body: JSON.stringify({
-        siteSlug,
+        body: {
+          siteSlug,
+        },
         timestamp: new Date().toISOString(),
       }),
     });
@@ -47,7 +48,7 @@ const handler: Handler = async (event, context) => {
     return {
       statusCode: 200,
       headers,
-      body: JSON.stringify({ success: true, data }),
+      body: JSON.stringify(data),
     };
   } catch (error) {
     console.error('Error in client_plan:', error);

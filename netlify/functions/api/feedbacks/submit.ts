@@ -19,24 +19,30 @@ const handler: Handler = async (event, context) => {
       return {
         statusCode: 400,
         headers,
-        body: JSON.stringify({ success: false, error: 'siteSlug, name, rating e comment são obrigatórios' }),
+        body: JSON.stringify({ 
+          success: false, 
+          error: 'siteSlug, name, rating e comment são obrigatórios' 
+        }),
       };
     }
 
-    // Chamada para n8n
-    const n8nResponse = await fetch(`${process.env.N8N_BASE_URL}/webhook/feedbacks/submit`, {
+    // Chamada para n8n com endpoint CORRETO
+    const n8nResponse = await fetch(`${process.env.N8N_BASE_URL}/webhook/api/feedback/submit`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${process.env.N8N_SIGNING_SECRET}`,
+        'x-elevea-key': process.env.N8N_SIGNING_SECRET,
       },
       body: JSON.stringify({
-        siteSlug,
-        name,
-        rating,
-        comment,
-        email,
-        phone,
+        body: {
+          siteSlug,
+          name,
+          rating,
+          comment,
+          email,
+          phone,
+        },
         timestamp: new Date().toISOString(),
       }),
     });
@@ -50,7 +56,7 @@ const handler: Handler = async (event, context) => {
     return {
       statusCode: 200,
       headers,
-      body: JSON.stringify({ success: true, data }),
+      body: JSON.stringify(data),
     };
   } catch (error) {
     console.error('Error in feedbacks/submit:', error);

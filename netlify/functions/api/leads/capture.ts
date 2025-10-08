@@ -1,10 +1,14 @@
 import { Handler } from '@netlify/functions';
 
+/**
+ * Lead Capture - Captura de Leads
+ * Recebe e armazena leads capturados no site
+ */
 const handler: Handler = async (event, context) => {
   const headers = {
     'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Headers': 'Content-Type',
-    'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+    'Access-Control-Allow-Methods': 'POST, OPTIONS',
     'Content-Type': 'application/json',
   };
 
@@ -13,18 +17,21 @@ const handler: Handler = async (event, context) => {
   }
 
   try {
-    const { siteSlug } = JSON.parse(event.body || '{}');
+    const { siteSlug, name, email, phone, source, score } = JSON.parse(event.body || '{}');
     
-    if (!siteSlug) {
+    if (!siteSlug || !name || !email) {
       return {
         statusCode: 400,
         headers,
-        body: JSON.stringify({ success: false, error: 'siteSlug é obrigatório' }),
+        body: JSON.stringify({ 
+          success: false, 
+          error: 'siteSlug, name e email são obrigatórios' 
+        }),
       };
     }
 
-    // Chamada para n8n com endpoint CORRETO
-    const n8nResponse = await fetch(`${process.env.N8N_BASE_URL}/webhook/api/feedbacks/list`, {
+    // Chamada para n8n
+    const n8nResponse = await fetch(`${process.env.N8N_BASE_URL}/webhook/api/leads/capture`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -34,6 +41,11 @@ const handler: Handler = async (event, context) => {
       body: JSON.stringify({
         body: {
           siteSlug,
+          name,
+          email,
+          phone,
+          source: source || 'website',
+          score: score || 50,
         },
         timestamp: new Date().toISOString(),
       }),
@@ -51,7 +63,7 @@ const handler: Handler = async (event, context) => {
       body: JSON.stringify(data),
     };
   } catch (error) {
-    console.error('Error in feedbacks/list:', error);
+    console.error('Error in leads/capture:', error);
     return {
       statusCode: 500,
       headers,

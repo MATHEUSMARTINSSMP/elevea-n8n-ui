@@ -1,10 +1,14 @@
 import { Handler } from '@netlify/functions';
 
+/**
+ * Evolution API - Buscar Histórico de Mensagens
+ * Retorna conversas e mensagens do cliente
+ */
 const handler: Handler = async (event, context) => {
   const headers = {
     'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Headers': 'Content-Type',
-    'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+    'Access-Control-Allow-Methods': 'POST, OPTIONS',
     'Content-Type': 'application/json',
   };
 
@@ -13,27 +17,34 @@ const handler: Handler = async (event, context) => {
   }
 
   try {
-    const { siteSlug } = JSON.parse(event.body || '{}');
+    const { siteSlug, phone, limit } = JSON.parse(event.body || '{}');
     
     if (!siteSlug) {
       return {
         statusCode: 400,
         headers,
-        body: JSON.stringify({ success: false, error: 'siteSlug é obrigatório' }),
+        body: JSON.stringify({ 
+          success: false, 
+          error: 'siteSlug é obrigatório' 
+        }),
       };
     }
 
-    // Chamada para n8n com endpoint CORRETO
-    const n8nResponse = await fetch(`${process.env.N8N_BASE_URL}/webhook/api/feedbacks/list`, {
+    // Chamada para n8n
+    const n8nResponse = await fetch(`${process.env.N8N_BASE_URL}/webhook/api/whatsapp/get-messages`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${process.env.N8N_SIGNING_SECRET}`,
-        'x-elevea-key': process.env.N8N_SIGNING_SECRET,
       },
       body: JSON.stringify({
-        body: {
-          siteSlug,
+        siteSlug,
+        phone,
+        limit: limit || 50,
+        evolution: {
+          url: process.env.EVOLUTION_API_URL,
+          apiKey: process.env.EVOLUTION_API_KEY,
+          instanceName: process.env.EVOLUTION_INSTANCE_NAME,
         },
         timestamp: new Date().toISOString(),
       }),
@@ -48,10 +59,10 @@ const handler: Handler = async (event, context) => {
     return {
       statusCode: 200,
       headers,
-      body: JSON.stringify(data),
+      body: JSON.stringify({ success: true, data }),
     };
   } catch (error) {
-    console.error('Error in feedbacks/list:', error);
+    console.error('Error in whatsapp/get-messages:', error);
     return {
       statusCode: 500,
       headers,

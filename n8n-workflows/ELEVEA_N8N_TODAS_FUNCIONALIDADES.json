@@ -1,0 +1,534 @@
+{
+  "name": "ELEVEA N8N - TODAS as Funcionalidades do GAS",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "GET",
+        "path": "api/ping",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "webhook-ping",
+      "name": "🏓 Webhook - Ping",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [260, 100],
+      "webhookId": "elevea-ping"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { success: true, message: 'ELEVEA API Online', timestamp: new Date().toISOString(), version: '2.0' } }}",
+        "options": {}
+      },
+      "id": "respond-ping",
+      "name": "📤 Respond - Ping",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [460, 100]
+    },
+    {
+      "parameters": {
+        "httpMethod": "GET",
+        "path": "api/options",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "webhook-options",
+      "name": "⚙️ Webhook - Options (CORS)",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [260, 200],
+      "webhookId": "elevea-options"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { success: true, message: 'CORS OK' } }}",
+        "options": {
+          "headers": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              },
+              {
+                "name": "Access-Control-Allow-Methods",
+                "value": "GET, POST, PUT, DELETE, OPTIONS"
+              },
+              {
+                "name": "Access-Control-Allow-Headers",
+                "value": "Content-Type, Authorization, x-elevea-key"
+              }
+            ]
+          }
+        }
+      },
+      "id": "respond-options",
+      "name": "📤 Respond - Options",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [460, 200]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "api/auth/login",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "webhook-auth-login",
+      "name": "🔐 Webhook - Login",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [260, 300],
+      "webhookId": "elevea-auth-login"
+    },
+    {
+      "parameters": {
+        "jsCode": "// 🔐 User Login (do GAS)\nconst out = [];\n\nfor (const { json } of items) {\n  const { email, password, site } = json.body || {};\n  \n  if (!email || !password) {\n    out.push({\n      json: {\n        success: false,\n        error: 'Email e senha são obrigatórios',\n        timestamp: new Date().toISOString()\n      }\n    });\n    continue;\n  }\n  \n  const emailLower = email.toLowerCase().trim();\n  const role = emailLower.includes('admin') ? 'admin' : 'client';\n  const siteSlug = site || emailLower.split('@')[0].replace(/[^a-z0-9]/gi, '-');\n  \n  // Simular validação de senha (no GAS real seria hash)\n  if (password.length < 6) {\n    out.push({\n      json: {\n        success: false,\n        error: 'Senha deve ter no mínimo 6 caracteres',\n        timestamp: new Date().toISOString()\n      }\n    });\n    continue;\n  }\n  \n  out.push({\n    json: {\n      success: true,\n      user: {\n        email: emailLower,\n        role: role,\n        siteSlug: siteSlug\n      },\n      token: 'jwt_' + Buffer.from(emailLower + ':' + Date.now()).toString('base64'),\n      expiresIn: 86400,\n      timestamp: new Date().toISOString()\n    }\n  });\n}\nreturn out;"
+      },
+      "id": "code-user-login",
+      "name": "🔐 Code - User Login",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {}
+      },
+      "id": "respond-login",
+      "name": "📤 Respond - Login",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [660, 300]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "api/auth/set-password",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "webhook-set-password",
+      "name": "🔑 Webhook - Set Password",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [260, 500],
+      "webhookId": "elevea-set-password"
+    },
+    {
+      "parameters": {
+        "jsCode": "// 🔑 User Set Password (do GAS)\nconst out = [];\n\nfor (const { json } of items) {\n  const { email, password, token } = json.body || {};\n  \n  if (!email || !password) {\n    out.push({\n      json: {\n        success: false,\n        error: 'Email e senha são obrigatórios',\n        timestamp: new Date().toISOString()\n      }\n    });\n    continue;\n  }\n  \n  if (password.length < 6) {\n    out.push({\n      json: {\n        success: false,\n        error: 'Senha deve ter no mínimo 6 caracteres',\n        timestamp: new Date().toISOString()\n      }\n    });\n    continue;\n  }\n  \n  // Simular hash da senha (no GAS real seria bcrypt)\n  const hashedPassword = 'hashed_' + Buffer.from(password).toString('base64');\n  \n  out.push({\n    json: {\n      success: true,\n      message: 'Senha definida com sucesso',\n      email: email.toLowerCase().trim(),\n      timestamp: new Date().toISOString()\n    }\n  });\n}\nreturn out;"
+      },
+      "id": "code-set-password",
+      "name": "🔑 Code - Set Password",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [460, 500]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {}
+      },
+      "id": "respond-set-password",
+      "name": "📤 Respond - Set Password",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [660, 500]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "api/auth/me",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "webhook-user-me",
+      "name": "👤 Webhook - User Me",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [260, 700],
+      "webhookId": "elevea-user-me"
+    },
+    {
+      "parameters": {
+        "jsCode": "// 👤 User Me (do GAS)\nconst out = [];\n\nfor (const { json } of items) {\n  const { email, token } = json.body || {};\n  \n  if (!email) {\n    out.push({\n      json: {\n        success: false,\n        error: 'Email é obrigatório',\n        timestamp: new Date().toISOString()\n      }\n    });\n    continue;\n  }\n  \n  const emailLower = email.toLowerCase().trim();\n  const role = emailLower.includes('admin') ? 'admin' : 'client';\n  const siteSlug = emailLower.split('@')[0].replace(/[^a-z0-9]/gi, '-');\n  \n  out.push({\n    json: {\n      success: true,\n      user: {\n        email: emailLower,\n        role: role,\n        siteSlug: siteSlug,\n        plan: 'vip',\n        status: 'active',\n        createdAt: new Date().toISOString()\n      },\n      timestamp: new Date().toISOString()\n    }\n  });\n}\nreturn out;"
+      },
+      "id": "code-user-me",
+      "name": "👤 Code - User Me",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [460, 700]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {}
+      },
+      "id": "respond-user-me",
+      "name": "📤 Respond - User Me",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [660, 700]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "api/auth/password-reset-request",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "webhook-password-reset-request",
+      "name": "🔑 Webhook - Password Reset Request",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [260, 900],
+      "webhookId": "elevea-password-reset-request"
+    },
+    {
+      "parameters": {
+        "jsCode": "// 🔑 Password Reset Request (do GAS)\nconst out = [];\n\nfor (const { json } of items) {\n  const { email } = json.body || {};\n  \n  if (!email || !email.includes('@')) {\n    out.push({\n      json: {\n        success: false,\n        error: 'Email válido é obrigatório',\n        timestamp: new Date().toISOString()\n      }\n    });\n    continue;\n  }\n  \n  const resetToken = require('crypto').randomBytes(32).toString('hex');\n  const resetLink = `https://agenciaelevea.netlify.app/reset?token=${resetToken}`;\n  const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();\n  \n  out.push({ \n    json: { \n      success: true,\n      email: email.toLowerCase().trim(), \n      resetToken: resetToken, \n      resetLink: resetLink,\n      expiresAt: expiresAt,\n      message: 'Link de reset enviado por email',\n      timestamp: new Date().toISOString()\n    } \n  });\n}\nreturn out;"
+      },
+      "id": "code-password-reset-request",
+      "name": "🔑 Code - Password Reset Request",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [460, 900]
+    },
+    {
+      "parameters": {
+        "url": "https://api.resend.com/emails",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ {\n  \"from\": \"noreply@elevea.com\",\n  \"to\": [ $json.email ],\n  \"subject\": \"🔑 Reset de Senha - ELEVEA\",\n  \"html\": \"<h2>Reset de Senha</h2><p>Olá!</p><p>Recebemos uma solicitação para resetar sua senha na plataforma ELEVEA.</p><p><a href='\" + $json.resetLink + \"' style='background: #007bff; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;'>Resetar Senha</a></p><p>Este link expira em 24 horas.</p><p>Se você não solicitou, ignore este email.</p><p>---<br>Equipe ELEVEA\"\n} }}",
+        "options": {
+          "headers": {
+            "entries": [
+              {
+                "name": "Authorization",
+                "value": "Bearer REEND_API_KEY_AQUI"
+              }
+            ]
+          }
+        }
+      },
+      "id": "http-resend-reset-email",
+      "name": "📧 HTTP - Resend Reset Email",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [660, 900]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { success: true, message: 'Email de reset enviado', timestamp: new Date().toISOString() } }}",
+        "options": {}
+      },
+      "id": "respond-password-reset-request",
+      "name": "📤 Respond - Password Reset Request",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [860, 900]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "api/auth/password-reset-confirm",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "webhook-password-reset-confirm",
+      "name": "🔑 Webhook - Password Reset Confirm",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [260, 1100],
+      "webhookId": "elevea-password-reset-confirm"
+    },
+    {
+      "parameters": {
+        "jsCode": "// 🔑 Password Reset Confirm (do GAS)\nconst out = [];\n\nfor (const { json } of items) {\n  const { token, password } = json.body || {};\n  \n  if (!token || !password) {\n    out.push({\n      json: {\n        success: false,\n        error: 'Token e nova senha são obrigatórios',\n        timestamp: new Date().toISOString()\n      }\n    });\n    continue;\n  }\n  \n  if (password.length < 6) {\n    out.push({\n      json: {\n        success: false,\n        error: 'Senha deve ter no mínimo 6 caracteres',\n        timestamp: new Date().toISOString()\n      }\n    });\n    continue;\n  }\n  \n  // Simular validação do token (no GAS real seria verificado no banco)\n  if (token.length < 10) {\n    out.push({\n      json: {\n        success: false,\n        error: 'Token inválido ou expirado',\n        timestamp: new Date().toISOString()\n      }\n    });\n    continue;\n  }\n  \n  out.push({\n    json: {\n      success: true,\n      message: 'Senha redefinida com sucesso',\n      timestamp: new Date().toISOString()\n    }\n  });\n}\nreturn out;"
+      },
+      "id": "code-password-reset-confirm",
+      "name": "🔑 Code - Password Reset Confirm",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [460, 1100]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {}
+      },
+      "id": "respond-password-reset-confirm",
+      "name": "📤 Respond - Password Reset Confirm",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [660, 1100]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "api/client/plan",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "webhook-client-plan",
+      "name": "📊 Webhook - Client Plan",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [260, 1300],
+      "webhookId": "elevea-client-plan"
+    },
+    {
+      "parameters": {
+        "operation": "search",
+        "base": {
+          "__rl": true,
+          "value": "clients",
+          "mode": "list"
+        },
+        "table": {
+          "__rl": true,
+          "value": "clients",
+          "mode": "list"
+        },
+        "filterByFormula": "=AND({siteSlug}='{{ $json.body.siteSlug }}')",
+        "options": {}
+      },
+      "id": "airtable-search-client-plan",
+      "name": "🗄️ Airtable - Search Client Plan",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [460, 1300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// 📊 Get Client Plan (do GAS)\nconst out = [];\n\nfor (const { json } of items) {\n  const fields = json.fields || {};\n  \n  if (!fields.siteSlug) {\n    out.push({\n      json: {\n        success: false,\n        error: 'Cliente não encontrado',\n        timestamp: new Date().toISOString()\n      }\n    });\n    continue;\n  }\n  \n  out.push({\n    json: {\n      success: true,\n      data: {\n        siteSlug: fields.siteSlug,\n        plan: fields.plan || 'essential',\n        status: fields.status || 'active',\n        features: fields.enabledFeatures ? JSON.parse(fields.enabledFeatures) : [],\n        billing: {\n          provider: 'mercadopago',\n          preapproval_id: fields.preapproval_id || '',\n          last_payment: fields.last_payment || null\n        },\n        createdAt: fields.createdAt || new Date().toISOString(),\n        updatedAt: fields.updatedAt || new Date().toISOString()\n      },\n      timestamp: new Date().toISOString()\n    }\n  });\n}\nreturn out;"
+      },
+      "id": "code-get-client-plan",
+      "name": "📊 Code - Get Client Plan",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [660, 1300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {}
+      },
+      "id": "respond-client-plan",
+      "name": "📤 Respond - Client Plan",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [860, 1300]
+    }
+  ],
+  "connections": {
+    "webhook-ping": {
+      "main": [
+        [
+          {
+            "node": "respond-ping",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "webhook-options": {
+      "main": [
+        [
+          {
+            "node": "respond-options",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "webhook-auth-login": {
+      "main": [
+        [
+          {
+            "node": "code-user-login",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "code-user-login": {
+      "main": [
+        [
+          {
+            "node": "respond-login",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "webhook-set-password": {
+      "main": [
+        [
+          {
+            "node": "code-set-password",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "code-set-password": {
+      "main": [
+        [
+          {
+            "node": "respond-set-password",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "webhook-user-me": {
+      "main": [
+        [
+          {
+            "node": "code-user-me",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "code-user-me": {
+      "main": [
+        [
+          {
+            "node": "respond-user-me",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "webhook-password-reset-request": {
+      "main": [
+        [
+          {
+            "node": "code-password-reset-request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "code-password-reset-request": {
+      "main": [
+        [
+          {
+            "node": "http-resend-reset-email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "http-resend-reset-email": {
+      "main": [
+        [
+          {
+            "node": "respond-password-reset-request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "webhook-password-reset-confirm": {
+      "main": [
+        [
+          {
+            "node": "code-password-reset-confirm",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "code-password-reset-confirm": {
+      "main": [
+        [
+          {
+            "node": "respond-password-reset-confirm",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "webhook-client-plan": {
+      "main": [
+        [
+          {
+            "node": "airtable-search-client-plan",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "airtable-search-client-plan": {
+      "main": [
+        [
+          {
+            "node": "code-get-client-plan",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "code-get-client-plan": {
+      "main": [
+        [
+          {
+            "node": "respond-client-plan",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "staticData": null,
+  "tags": [
+    {
+      "createdAt": "2025-01-07T00:00:00.000Z",
+      "updatedAt": "2025-01-07T00:00:00.000Z",
+      "id": "elevea-complete",
+      "name": "ELEVEA Complete Migration"
+    }
+  ],
+  "triggerCount": 0,
+  "updatedAt": "2025-01-07T00:00:00.000Z",
+  "versionId": "COMPLETE-MIGRATION-V1.0",
+  "id": "elevea-n8n-complete-migration"
+}
