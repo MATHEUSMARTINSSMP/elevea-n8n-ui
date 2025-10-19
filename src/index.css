@@ -251,10 +251,6 @@ body {
 }
 
 /* Text Styles */
-.text-muted-foreground {
-  @apply text-muted-foreground;
-}
-
 .text-primary {
   color: var(--primary);
 }
