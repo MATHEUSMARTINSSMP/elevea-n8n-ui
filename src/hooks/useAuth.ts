@@ -49,23 +49,31 @@ export const useAuth = () => {
       if (storedUser && storedToken) {
         const user = JSON.parse(storedUser);
         
-        // Verify VIP status with backend
-        const vipResponse = await webhookService.checkVIPStatus(user.id);
-        
-        if (vipResponse.success) {
+        // Verify VIP status with backend (optional - pode falhar sem quebrar o login)
+        try {
+          const vipResponse = await webhookService.checkVIPStatus(user.id);
+          
+          if (vipResponse.success) {
+            setAuthState({
+              user: { ...user, is_vip: vipResponse.data?.is_vip || user.is_vip || false },
+              isAuthenticated: true,
+              isLoading: false,
+              error: null,
+            });
+          } else {
+            // VIP check falhou, mas manter login com status atual
+            setAuthState({
+              user,
+              isAuthenticated: true,
+              isLoading: false,
+              error: null,
+            });
+          }
+        } catch (vipError) {
+          // VIP check falhou, mas manter login com status atual
           setAuthState({
-            user: { ...user, is_vip: vipResponse.data?.is_vip || false },
+            user,
             isAuthenticated: true,
-            isLoading: false,
-            error: null,
-          });
-        } else {
-          // Token might be expired, clear storage
-          localStorage.removeItem('elevea_user');
-          localStorage.removeItem('elevea_token');
-          setAuthState({
-            user: null,
-            isAuthenticated: false,
             isLoading: false,
             error: null,
           });
@@ -95,21 +103,63 @@ export const useAuth = () => {
       const response = await webhookService.login(credentials);
       
       if (response.success && response.data) {
-        const user = response.data.user;
-        const token = response.data.token;
-        
-        // Store user data and token
-        localStorage.setItem('elevea_user', JSON.stringify(user));
-        localStorage.setItem('elevea_token', token);
-        
-        setAuthState({
-          user,
-          isAuthenticated: true,
-          isLoading: false,
-          error: null,
-        });
-        
-        return { success: true, user };
+        // Verificar se é formato do N8N (com id e fields) ou formato esperado (com user e token)
+        if (response.data.id && response.data.fields) {
+          // Formato do N8N - converter para formato esperado
+          const n8nData = response.data;
+          const user: User = {
+            id: n8nData.id,
+            email: n8nData.fields.email || credentials.email,
+            name: n8nData.fields.name || 'Usuário',
+            site_slug: n8nData.fields.site_slug || 'default',
+            status: (n8nData.fields.status as 'active' | 'blocked' | 'inactive') || 'active',
+            role: 'client', // Default role
+            is_vip: n8nData.fields.plan === 'vip' || n8nData.fields.plan === 'premium',
+            created_at: n8nData.createdTime,
+            updated_at: new Date().toISOString()
+          };
+          
+          // Gerar token simples baseado no ID do usuário
+          const token = btoa(`${user.id}:${Date.now()}`);
+          
+          // Store user data and token
+          localStorage.setItem('elevea_user', JSON.stringify(user));
+          localStorage.setItem('elevea_token', token);
+          
+          setAuthState({
+            user,
+            isAuthenticated: true,
+            isLoading: false,
+            error: null,
+          });
+          
+          return { success: true, user };
+        } else if (response.data.user && response.data.token) {
+          // Formato esperado original
+          const user = response.data.user;
+          const token = response.data.token;
+          
+          // Store user data and token
+          localStorage.setItem('elevea_user', JSON.stringify(user));
+          localStorage.setItem('elevea_token', token);
+          
+          setAuthState({
+            user,
+            isAuthenticated: true,
+            isLoading: false,
+            error: null,
+          });
+          
+          return { success: true, user };
+        } else {
+          // Dados incompletos
+          setAuthState(prev => ({
+            ...prev,
+            isLoading: false,
+            error: 'Invalid response format from server',
+          }));
+          return { success: false, error: 'Invalid response format from server' };
+        }
       } else {
         setAuthState(prev => ({
           ...prev,
