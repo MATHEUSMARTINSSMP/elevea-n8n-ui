@@ -1,6 +1,8 @@
 // Webhook Integration with N8N Backend
 import { WEBHOOK_ENDPOINTS } from './webhook-endpoints';
 
+const N8N_BASE_URL = 'https://fluxos.eleveaagencia.com.br';
+
 export interface WebhookResponse {
   success: boolean;
   data?: any;
