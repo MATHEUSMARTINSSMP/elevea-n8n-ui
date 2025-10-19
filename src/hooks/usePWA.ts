@@ -13,6 +13,7 @@ export function usePWA() {
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [isPWAInstalled, setIsPWAInstalled] = useState(false);
   const [isPWASupported, setIsPWASupported] = useState(false);
+  const [isUpdateAvailable, setIsUpdateAvailable] = useState(false);
 
   useEffect(() => {
     // Check if PWA is already installed
@@ -35,6 +36,13 @@ export function usePWA() {
     window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
     window.addEventListener('appinstalled', handleAppInstalled);
 
+    // Check for updates
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.addEventListener('controllerchange', () => {
+        setIsUpdateAvailable(true);
+      });
+    }
+
     return () => {
       window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
       window.removeEventListener('appinstalled', handleAppInstalled);
@@ -55,16 +63,30 @@ export function usePWA() {
     }
   }, [deferredPrompt]);
 
+  const updateApp = useCallback(async () => {
+    if ('serviceWorker' in navigator) {
+      const registration = await navigator.serviceWorker.getRegistration();
+      if (registration && registration.waiting) {
+        registration.waiting.postMessage({ type: 'SKIP_WAITING' });
+        window.location.reload();
+      }
+    }
+  }, []);
+
   return {
     isPWAInstalled,
     isPWASupported,
     canInstall: !!deferredPrompt,
     installPWA,
+    isInstallable: !!deferredPrompt,
+    isUpdateAvailable,
+    updateApp,
   };
 }
 
 export function useOfflineData() {
   const [isOnline, setIsOnline] = useState(navigator.onLine);
+  const [pendingChanges, setPendingChanges] = useState(0);
 
   useEffect(() => {
     const handleOnline = () => setIsOnline(true);
@@ -73,13 +95,21 @@ export function useOfflineData() {
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
 
+    // Simular mudanças pendentes quando offline
+    if (!isOnline) {
+      setPendingChanges(3); // Exemplo: 3 mudanças pendentes
+    } else {
+      setPendingChanges(0);
+    }
+
     return () => {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
     };
-  }, []);
+  }, [isOnline]);
 
   return {
     isOnline,
+    pendingChanges,
   };
 }
