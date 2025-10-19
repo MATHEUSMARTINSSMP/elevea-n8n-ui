@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../..
 import { Badge } from '../../components/ui/badge';
 import { ArrowLeft, Sparkles } from 'lucide-react';
 
-export const Login: React.FC = () => {
+const Login: React.FC = () => {
   const [showResetPassword, setShowResetPassword] = useState(false);
   const [showUpgrade, setShowUpgrade] = useState(false);
 
@@ -111,3 +111,5 @@ export const Login: React.FC = () => {
     </div>
   );
 };
+
+export default Login;
