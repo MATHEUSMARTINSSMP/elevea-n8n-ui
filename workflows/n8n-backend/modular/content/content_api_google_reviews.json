@@ -1,0 +1,164 @@
+{
+  "name": "content_api_google_reviews",
+  "description": "Workflow modular para api/google/reviews - Módulo CONTENT",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "GET",
+        "path": "api/google/reviews",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "webhook-google-reviews",
+      "name": "🌟 Webhook - Google Reviews",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [
+        260,
+        3700
+      ],
+      "webhookId": "elevea-google-reviews"
+    },
+    {
+      "parameters": {
+        "jsCode": "// FUNÇÃO: google_reviews / gmb_get_reviews / gmbGetReviews_ (do GAS)\nconst out = [];\nfor (const { json } of items) {\n  const query = json.query || {};\n  const { siteSlug } = query;\n  \n  if (!siteSlug) {\n    out.push({\n      json: {\n        success: false,\n        error: 'siteSlug é obrigatório',\n        timestamp: new Date().toISOString()\n      }\n    });\n    continue;\n  }\n  \n  out.push({\n    json: {\n      siteSlug,\n      timestamp: new Date().toISOString()\n    }\n  });\n}\nreturn out;"
+      },
+      "id": "code-google-reviews",
+      "name": "🌟 Code - Google Reviews",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        460,
+        3700
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "list",
+        "base": {
+          "__rl": true,
+          "value": "appELEVEA",
+          "mode": "list"
+        },
+        "table": {
+          "__rl": true,
+          "value": "google_reviews",
+          "mode": "list"
+        },
+        "options": {
+          "sort": [
+            {
+              "field": "review_date",
+              "direction": "desc"
+            }
+          ]
+        }
+      },
+      "id": "airtable-list-google-reviews",
+      "name": "🗄️ Airtable - List Google Reviews",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [
+        660,
+        3700
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Formatar lista de reviews\nconst out = [];\nconst reviews = [];\n\nfor (const { json } of items) {\n  const fields = json.fields || {};\n  reviews.push({\n    reviewId: fields.review_id,\n    siteSlug: fields.site_slug,\n    rating: fields.rating,\n    comment: fields.comment,\n    authorName: fields.author_name,\n    reviewDate: fields.review_date,\n    reply: fields.reply,\n    syncedAt: fields.synced_at\n  });\n}\n\nout.push({\n  json: {\n    success: true,\n    reviews: reviews,\n    count: reviews.length,\n    averageRating: reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length || 0,\n    timestamp: new Date().toISOString()\n  }\n});\nreturn out;"
+      },
+      "id": "code-format-google-reviews",
+      "name": "🌟 Code - Format Google Reviews",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        860,
+        3700
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {
+          "headers": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          }
+        }
+      },
+      "id": "respond-google-reviews",
+      "name": "📤 Respond - Google Reviews",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1060,
+        3700
+      ]
+    }
+  ],
+  "connections": {
+    "webhook-google-reviews": {
+      "main": [
+        [
+          {
+            "node": "code-google-reviews",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "respond-google-reviews",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "code-google-reviews": {
+      "main": [
+        [
+          {
+            "node": "airtable-list-google-reviews",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "airtable-list-google-reviews": {
+      "main": [
+        [
+          {
+            "node": "code-format-google-reviews",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "code-format-google-reviews": {
+      "main": [
+        [
+          {
+            "node": "respond-google-reviews",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": [
+    "modular",
+    "elevea",
+    "content"
+  ]
+}

@@ -1,0 +1,706 @@
+{
+  "name": "admin_audit_system",
+  "description": "Sistema completo de auditoria",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "GET",
+        "path": "api/audit/logs",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "node_1_webhook-audit-logs",
+      "name": "📝 Webhook - Audit Logs",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [
+        260,
+        9500
+      ],
+      "webhookId": "elevea-audit-logs"
+    },
+    {
+      "parameters": {
+        "jsCode": "// FUNÇÃO: get_audit_logs (do GAS)\nconst out = [];\nfor (const { json } of items) {\n  const query = json.query || {};\n  const { siteSlug, severity, limit } = query;\n  \n  out.push({\n    json: {\n      siteSlug: siteSlug || 'all',\n      severity: severity || 'all',\n      limit: parseInt(limit) || 100,\n      timestamp: new Date().toISOString()\n    }\n  });\n}\nreturn out;"
+      },
+      "id": "node_2_code-audit-logs",
+      "name": "📝 Code - Audit Logs",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        460,
+        9500
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "list",
+        "base": {
+          "__rl": true,
+          "value": "appELEVEA",
+          "mode": "list"
+        },
+        "table": {
+          "__rl": true,
+          "value": "audit_logs",
+          "mode": "list"
+        },
+        "limit": "={{ $json.limit }}",
+        "options": {
+          "sort": [
+            {
+              "field": "created_at",
+              "direction": "desc"
+            }
+          ]
+        }
+      },
+      "id": "node_3_airtable-list-audit-logs",
+      "name": "🗄️ Airtable - List Audit Logs",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [
+        660,
+        9500
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Formatar logs de auditoria\nconst out = [];\nconst logs = [];\n\nfor (const { json } of items) {\n  const fields = json.fields || {};\n  logs.push({\n    logId: json.id,\n    siteSlug: fields.site_slug,\n    action: fields.action,\n    userEmail: fields.user_email,\n    userRole: fields.user_role,\n    details: fields.details,\n    severity: fields.severity,\n    createdAt: fields.created_at\n  });\n}\n\nconst severityCounts = {};\nlogs.forEach(l => {\n  severityCounts[l.severity] = (severityCounts[l.severity] || 0) + 1;\n});\n\nout.push({\n  json: {\n    success: true,\n    logs: logs,\n    count: logs.length,\n    severityBreakdown: severityCounts,\n    timestamp: new Date().toISOString()\n  }\n});\nreturn out;"
+      },
+      "id": "node_4_code-format-audit-logs",
+      "name": "📝 Code - Format Audit Logs",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        860,
+        9500
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {
+          "headers": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          }
+        }
+      },
+      "id": "node_5_respond-audit-logs",
+      "name": "📤 Respond - Audit Logs",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1060,
+        9500
+      ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "api/audit/security-alerts",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "node_6_webhook-security-alerts",
+      "name": "🔒 Webhook - Security Alerts",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [
+        260,
+        13400
+      ],
+      "webhookId": "elevea-security-alerts"
+    },
+    {
+      "parameters": {
+        "jsCode": "// FUNÇÃO: audit_get_security_alerts (do GAS linha 1427)\nconst out = [];\nfor (const { json } of items) {\n  const { site, siteSlug, severity, resolved = false } = json.body || {};\n  const normalizedSite = (site || siteSlug || '').toUpperCase();\n  \n  let searchFormula = normalizedSite ? `{site}='${normalizedSite}'` : '1=1';\n  \n  if (severity) {\n    searchFormula = `AND(${searchFormula}, {severity}='${severity}')`;  \n  }\n  \n  if (typeof resolved === 'boolean') {\n    searchFormula = `AND(${searchFormula}, {resolved}=${resolved ? 'TRUE()' : 'FALSE()'})`;\n  }\n  \n  out.push({\n    json: {\n      siteSlug: normalizedSite || 'ALL',\n      searchFormula: searchFormula,\n      needsAdminCheck: true,\n      timestamp: new Date().toISOString()\n    }\n  });\n}\nreturn out;"
+      },
+      "id": "node_7_code-security-alerts-prep",
+      "name": "📝 Code - Prepare Alerts Query",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        460,
+        13400
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "list",
+        "base": {
+          "__rl": true,
+          "value": "appELEVEA",
+          "mode": "list"
+        },
+        "table": {
+          "__rl": true,
+          "value": "security_alerts",
+          "mode": "list"
+        },
+        "returnAll": false,
+        "limit": 100,
+        "options": {
+          "filterByFormula": "={{ $json.searchFormula }}"
+        }
+      },
+      "id": "node_8_airtable-list-security-alerts",
+      "name": "🗄️ Airtable - List Alerts",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [
+        660,
+        13400
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Formatar e ordenar alertas por severity\nconst out = [];\nconst alerts = items.map(i => i.json.fields || i.json);\n\n// Ordem de severity\nconst severityOrder = { critical: 4, high: 3, medium: 2, low: 1 };\n\nalerts.sort((a, b) => {\n  const severityA = severityOrder[a.severity] || 0;\n  const severityB = severityOrder[b.severity] || 0;\n  if (severityA !== severityB) return severityB - severityA;\n  return new Date(b.createdAt) - new Date(a.createdAt);\n});\n\nconst criticalCount = alerts.filter(a => a.severity === 'critical').length;\nconst highCount = alerts.filter(a => a.severity === 'high').length;\nconst unresolvedCount = alerts.filter(a => !a.resolved).length;\n\nout.push({\n  json: {\n    success: true,\n    data: {\n      alerts: alerts,\n      total: alerts.length,\n      criticalCount: criticalCount,\n      highCount: highCount,\n      unresolvedCount: unresolvedCount\n    },\n    timestamp: new Date().toISOString()\n  }\n});\nreturn out;"
+      },
+      "id": "node_9_code-format-security-alerts",
+      "name": "📊 Code - Format Alerts",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        860,
+        13400
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {
+          "headers": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          }
+        }
+      },
+      "id": "node_10_respond-security-alerts",
+      "name": "📤 Respond - Security Alerts",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1060,
+        13400
+      ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "api/audit/alerts/resolve",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "node_11_webhook-resolve-alert",
+      "name": "🔒 Webhook - Resolve Alert",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [
+        260,
+        13600
+      ],
+      "webhookId": "elevea-resolve-alert"
+    },
+    {
+      "parameters": {
+        "jsCode": "// FUNÇÃO: audit_resolve_alert (do GAS linha 1429)\nconst out = [];\nfor (const { json } of items) {\n  const { alertId, resolvedBy, notes } = json.body || {};\n  \n  if (!alertId) {\n    out.push({\n      json: {\n        success: false,\n        error: 'Alert ID é obrigatório',\n        timestamp: new Date().toISOString()\n      }\n    });\n    continue;\n  }\n  \n  out.push({\n    json: {\n      alertId: alertId,\n      searchFormula: `{id}='${alertId}'`,\n      resolvedBy: resolvedBy || 'admin',\n      notes: notes || '',\n      needsAdminCheck: true,\n      timestamp: new Date().toISOString()\n    }\n  });\n}\nreturn out;"
+      },
+      "id": "node_12_code-resolve-alert-prep",
+      "name": "📝 Code - Prepare Resolve",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        460,
+        13600
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "search",
+        "base": {
+          "__rl": true,
+          "value": "appELEVEA",
+          "mode": "list"
+        },
+        "table": {
+          "__rl": true,
+          "value": "security_alerts",
+          "mode": "list"
+        },
+        "filterByFormula": "={{ $json.searchFormula }}",
+        "options": {}
+      },
+      "id": "node_13_airtable-search-alert",
+      "name": "🗄️ Airtable - Search Alert",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [
+        660,
+        13600
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "base": {
+          "__rl": true,
+          "value": "appELEVEA",
+          "mode": "list"
+        },
+        "table": {
+          "__rl": true,
+          "value": "security_alerts",
+          "mode": "list"
+        },
+        "id": "={{ $json.id }}",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldName": "resolved",
+              "fieldValue": "true"
+            },
+            {
+              "fieldName": "resolvedAt",
+              "fieldValue": "={{ new Date().toISOString() }}"
+            },
+            {
+              "fieldName": "resolvedBy",
+              "fieldValue": "={{ $json.resolvedBy }}"
+            },
+            {
+              "fieldName": "resolutionNotes",
+              "fieldValue": "={{ $json.notes }}"
+            }
+          ]
+        }
+      },
+      "id": "node_14_airtable-resolve-alert",
+      "name": "🗄️ Airtable - Resolve Alert",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [
+        860,
+        13600
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "base": {
+          "__rl": true,
+          "value": "appELEVEA",
+          "mode": "list"
+        },
+        "table": {
+          "__rl": true,
+          "value": "audit_logs",
+          "mode": "list"
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldName": "site",
+              "fieldValue": "={{ $json.fields.site }}"
+            },
+            {
+              "fieldName": "action",
+              "fieldValue": "alert_resolved"
+            },
+            {
+              "fieldName": "category",
+              "fieldValue": "security"
+            },
+            {
+              "fieldName": "severity",
+              "fieldValue": "info"
+            },
+            {
+              "fieldName": "details",
+              "fieldValue": "={{ 'Alert ' + $json.alertId + ' resolved by ' + $json.resolvedBy }}"
+            },
+            {
+              "fieldName": "userId",
+              "fieldValue": "={{ $json.resolvedBy }}"
+            },
+            {
+              "fieldName": "timestamp",
+              "fieldValue": "={{ new Date().toISOString() }}"
+            }
+          ]
+        }
+      },
+      "id": "node_15_airtable-log-alert-resolution",
+      "name": "🗄️ Airtable - Log Resolution",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [
+        1060,
+        13600
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { success: true, message: 'Alerta resolvido com sucesso', alertId: $json.alertId, timestamp: new Date().toISOString() } }}",
+        "options": {
+          "headers": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          }
+        }
+      },
+      "id": "node_16_respond-resolve-alert",
+      "name": "📤 Respond - Resolve Alert",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1260,
+        13600
+      ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "api/audit/statistics",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "node_17_webhook-audit-statistics",
+      "name": "🔒 Webhook - Audit Statistics",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [
+        260,
+        13800
+      ],
+      "webhookId": "elevea-audit-statistics"
+    },
+    {
+      "parameters": {
+        "jsCode": "// FUNÇÃO: audit_get_statistics (do GAS linha 1430)\nconst out = [];\nfor (const { json } of items) {\n  const { site, siteSlug, range = '30d' } = json.body || {};\n  const normalizedSite = (site || siteSlug || '').toUpperCase();\n  \n  // Calcular cutoff date\n  const days = range === '7d' ? 7 : range === '30d' ? 30 : 90;\n  const cutoffDate = new Date();\n  cutoffDate.setDate(cutoffDate.getDate() - days);\n  \n  let searchFormula = `{timestamp}>='${cutoffDate.toISOString()}'`;\n  if (normalizedSite) {\n    searchFormula = `AND({site}='${normalizedSite}', ${searchFormula})`;\n  }\n  \n  out.push({\n    json: {\n      siteSlug: normalizedSite || 'ALL',\n      range: range,\n      cutoffDate: cutoffDate.toISOString(),\n      searchFormula: searchFormula,\n      needsAdminCheck: true,\n      timestamp: new Date().toISOString()\n    }\n  });\n}\nreturn out;"
+      },
+      "id": "node_18_code-audit-stats-prep",
+      "name": "📝 Code - Prepare Stats Query",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        460,
+        13800
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "list",
+        "base": {
+          "__rl": true,
+          "value": "appELEVEA",
+          "mode": "list"
+        },
+        "table": {
+          "__rl": true,
+          "value": "audit_logs",
+          "mode": "list"
+        },
+        "returnAll": false,
+        "limit": 10000,
+        "options": {
+          "filterByFormula": "={{ $json.searchFormula }}"
+        }
+      },
+      "id": "node_19_airtable-list-audit-for-stats",
+      "name": "🗄️ Airtable - List Audit Logs",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [
+        660,
+        13800
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Agregar estatísticas de audit (baseado no GAS)\nconst logs = items.map(i => i.json.fields || i.json);\n\n// Total eventos\nconst total = logs.length;\n\n// Por categoria\nconst byCategory = {};\nlogs.forEach(log => {\n  const cat = log.category || 'other';\n  byCategory[cat] = (byCategory[cat] || 0) + 1;\n});\n\n// Por severity\nconst bySeverity = {};\nlogs.forEach(log => {\n  const sev = log.severity || 'info';\n  bySeverity[sev] = (bySeverity[sev] || 0) + 1;\n});\n\n// Por usuário\nconst byUser = {};\nlogs.forEach(log => {\n  const user = log.userId || 'system';\n  byUser[user] = (byUser[user] || 0) + 1;\n});\n\n// Por site\nconst bySite = {};\nlogs.forEach(log => {\n  const site = log.site || 'unknown';\n  bySite[site] = (bySite[site] || 0) + 1;\n});\n\n// Top ações\nconst actionCounts = {};\nlogs.forEach(log => {\n  const action = log.action || 'unknown';\n  actionCounts[action] = (actionCounts[action] || 0) + 1;\n});\nconst topActions = Object.entries(actionCounts)\n  .map(([action, count]) => ({ action, count }))\n  .sort((a, b) => b.count - a.count)\n  .slice(0, 10);\n\n// Timeline diária\nconst dailyStats = {};\nlogs.forEach(log => {\n  const date = new Date(log.timestamp).toISOString().split('T')[0];\n  if (!dailyStats[date]) dailyStats[date] = 0;\n  dailyStats[date]++;\n});\n\nconst dailyArray = Object.entries(dailyStats)\n  .map(([date, count]) => ({ date, count }))\n  .sort((a, b) => new Date(a.date) - new Date(b.date));\n\nconst out = [{\n  json: {\n    success: true,\n    data: {\n      total: total,\n      byCategory: byCategory,\n      bySeverity: bySeverity,\n      byUser: byUser,\n      bySite: bySite,\n      topActions: topActions,\n      dailyStats: dailyArray\n    },\n    timestamp: new Date().toISOString()\n  }\n}];\nreturn out;"
+      },
+      "id": "node_20_code-aggregate-audit-stats",
+      "name": "📊 Code - Aggregate Stats",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        860,
+        13800
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {
+          "headers": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          }
+        }
+      },
+      "id": "node_21_respond-audit-statistics",
+      "name": "📤 Respond - Audit Stats",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1060,
+        13800
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { success: true, message: '🔒 Webhook - Audit Statistics processado', timestamp: new Date().toISOString() } }}",
+        "options": {}
+      },
+      "id": "node_22_respond-webhook-audit-statistics",
+      "name": "📤 Respond - Audit Statistics",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        800,
+        100
+      ]
+    }
+  ],
+  "connections": {
+    "node_1_webhook-audit-logs": {
+      "main": [
+        [
+          {
+            "node": "node_2_code-audit-logs",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "node_5_respond-audit-logs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "node_2_code-audit-logs": {
+      "main": [
+        [
+          {
+            "node": "node_3_airtable-list-audit-logs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "node_3_airtable-list-audit-logs": {
+      "main": [
+        [
+          {
+            "node": "node_4_code-format-audit-logs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "node_4_code-format-audit-logs": {
+      "main": [
+        [
+          {
+            "node": "node_5_respond-audit-logs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "node_6_webhook-security-alerts": {
+      "main": [
+        [
+          {
+            "node": "node_7_code-security-alerts-prep",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "node_10_respond-security-alerts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "node_7_code-security-alerts-prep": {
+      "main": [
+        [
+          {
+            "node": "node_8_airtable-list-security-alerts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "node_8_airtable-list-security-alerts": {
+      "main": [
+        [
+          {
+            "node": "node_9_code-format-security-alerts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "node_9_code-format-security-alerts": {
+      "main": [
+        [
+          {
+            "node": "node_10_respond-security-alerts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "node_11_webhook-resolve-alert": {
+      "main": [
+        [
+          {
+            "node": "node_12_code-resolve-alert-prep",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "node_16_respond-resolve-alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "node_12_code-resolve-alert-prep": {
+      "main": [
+        [
+          {
+            "node": "node_13_airtable-search-alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "node_13_airtable-search-alert": {
+      "main": [
+        [
+          {
+            "node": "node_14_airtable-resolve-alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "node_14_airtable-resolve-alert": {
+      "main": [
+        [
+          {
+            "node": "node_15_airtable-log-alert-resolution",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "node_15_airtable-log-alert-resolution": {
+      "main": [
+        [
+          {
+            "node": "node_16_respond-resolve-alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "node_17_webhook-audit-statistics": {
+      "main": [
+        [
+          {
+            "node": "node_18_code-audit-stats-prep",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "node_22_respond-webhook-audit-statistics",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "node_18_code-audit-stats-prep": {
+      "main": [
+        [
+          {
+            "node": "node_19_airtable-list-audit-for-stats",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "node_19_airtable-list-audit-for-stats": {
+      "main": [
+        [
+          {
+            "node": "node_20_code-aggregate-audit-stats",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "node_20_code-aggregate-audit-stats": {
+      "main": [
+        [
+          {
+            "node": "node_21_respond-audit-statistics",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": [
+    "optimized",
+    "elevea",
+    "modular"
+  ]
+}

@@ -1,0 +1,164 @@
+{
+  "name": "content_api_feedback_list",
+  "description": "Workflow modular para api/feedback/list - Módulo CONTENT",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "GET",
+        "path": "api/feedback/list",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "webhook-feedback-list",
+      "name": "💬 Webhook - Feedback List",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [
+        260,
+        4100
+      ],
+      "webhookId": "elevea-feedback-list"
+    },
+    {
+      "parameters": {
+        "jsCode": "// FUNÇÃO: list_feedbacks_secure (do GAS)\nconst out = [];\nfor (const { json } of items) {\n  const query = json.query || {};\n  const { siteSlug, status } = query;\n  \n  out.push({\n    json: {\n      siteSlug: siteSlug || 'all',\n      status: status || 'all',\n      timestamp: new Date().toISOString()\n    }\n  });\n}\nreturn out;"
+      },
+      "id": "code-feedback-list",
+      "name": "💬 Code - Feedback List",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        460,
+        4100
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "list",
+        "base": {
+          "__rl": true,
+          "value": "appELEVEA",
+          "mode": "list"
+        },
+        "table": {
+          "__rl": true,
+          "value": "feedbacks",
+          "mode": "list"
+        },
+        "options": {
+          "sort": [
+            {
+              "field": "created_at",
+              "direction": "desc"
+            }
+          ]
+        }
+      },
+      "id": "airtable-list-feedbacks",
+      "name": "🗄️ Airtable - List Feedbacks",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [
+        660,
+        4100
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Formatar lista de feedbacks\nconst out = [];\nconst feedbacks = [];\n\nfor (const { json } of items) {\n  const fields = json.fields || {};\n  feedbacks.push({\n    feedbackId: json.id,\n    siteSlug: fields.site_slug,\n    clientName: fields.client_name,\n    clientEmail: fields.client_email,\n    rating: fields.rating,\n    comment: fields.comment,\n    status: fields.status,\n    approvedBy: fields.approved_by,\n    approvedAt: fields.approved_at,\n    published: fields.published,\n    createdAt: fields.created_at\n  });\n}\n\nout.push({\n  json: {\n    success: true,\n    feedbacks: feedbacks,\n    count: feedbacks.length,\n    averageRating: feedbacks.reduce((sum, f) => sum + f.rating, 0) / feedbacks.length || 0,\n    timestamp: new Date().toISOString()\n  }\n});\nreturn out;"
+      },
+      "id": "code-format-feedbacks-list",
+      "name": "💬 Code - Format Feedbacks List",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        860,
+        4100
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {
+          "headers": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          }
+        }
+      },
+      "id": "respond-feedback-list",
+      "name": "📤 Respond - Feedback List",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1060,
+        4100
+      ]
+    }
+  ],
+  "connections": {
+    "webhook-feedback-list": {
+      "main": [
+        [
+          {
+            "node": "code-feedback-list",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "respond-feedback-list",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "code-feedback-list": {
+      "main": [
+        [
+          {
+            "node": "airtable-list-feedbacks",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "airtable-list-feedbacks": {
+      "main": [
+        [
+          {
+            "node": "code-format-feedbacks-list",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "code-format-feedbacks-list": {
+      "main": [
+        [
+          {
+            "node": "respond-feedback-list",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": [
+    "modular",
+    "elevea",
+    "content"
+  ]
+}

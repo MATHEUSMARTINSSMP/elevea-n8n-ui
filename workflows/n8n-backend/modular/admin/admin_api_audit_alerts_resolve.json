@@ -1,0 +1,255 @@
+{
+  "name": "admin_api_audit_alerts_resolve",
+  "description": "Workflow modular para api/audit/alerts/resolve - Módulo ADMIN",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "api/audit/alerts/resolve",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "webhook-resolve-alert",
+      "name": "🔒 Webhook - Resolve Alert",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [
+        260,
+        13600
+      ],
+      "webhookId": "elevea-resolve-alert"
+    },
+    {
+      "parameters": {
+        "jsCode": "// FUNÇÃO: audit_resolve_alert (do GAS linha 1429)\nconst out = [];\nfor (const { json } of items) {\n  const { alertId, resolvedBy, notes } = json.body || {};\n  \n  if (!alertId) {\n    out.push({\n      json: {\n        success: false,\n        error: 'Alert ID é obrigatório',\n        timestamp: new Date().toISOString()\n      }\n    });\n    continue;\n  }\n  \n  out.push({\n    json: {\n      alertId: alertId,\n      searchFormula: `{id}='${alertId}'`,\n      resolvedBy: resolvedBy || 'admin',\n      notes: notes || '',\n      needsAdminCheck: true,\n      timestamp: new Date().toISOString()\n    }\n  });\n}\nreturn out;"
+      },
+      "id": "code-resolve-alert-prep",
+      "name": "📝 Code - Prepare Resolve",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        460,
+        13600
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "search",
+        "base": {
+          "__rl": true,
+          "value": "appELEVEA",
+          "mode": "list"
+        },
+        "table": {
+          "__rl": true,
+          "value": "security_alerts",
+          "mode": "list"
+        },
+        "filterByFormula": "={{ $json.searchFormula }}",
+        "options": {}
+      },
+      "id": "airtable-search-alert",
+      "name": "🗄️ Airtable - Search Alert",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [
+        660,
+        13600
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "base": {
+          "__rl": true,
+          "value": "appELEVEA",
+          "mode": "list"
+        },
+        "table": {
+          "__rl": true,
+          "value": "security_alerts",
+          "mode": "list"
+        },
+        "id": "={{ $json.id }}",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldName": "resolved",
+              "fieldValue": "true"
+            },
+            {
+              "fieldName": "resolvedAt",
+              "fieldValue": "={{ new Date().toISOString() }}"
+            },
+            {
+              "fieldName": "resolvedBy",
+              "fieldValue": "={{ $json.resolvedBy }}"
+            },
+            {
+              "fieldName": "resolutionNotes",
+              "fieldValue": "={{ $json.notes }}"
+            }
+          ]
+        }
+      },
+      "id": "airtable-resolve-alert",
+      "name": "🗄️ Airtable - Resolve Alert",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [
+        860,
+        13600
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "base": {
+          "__rl": true,
+          "value": "appELEVEA",
+          "mode": "list"
+        },
+        "table": {
+          "__rl": true,
+          "value": "audit_logs",
+          "mode": "list"
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldName": "site",
+              "fieldValue": "={{ $json.fields.site }}"
+            },
+            {
+              "fieldName": "action",
+              "fieldValue": "alert_resolved"
+            },
+            {
+              "fieldName": "category",
+              "fieldValue": "security"
+            },
+            {
+              "fieldName": "severity",
+              "fieldValue": "info"
+            },
+            {
+              "fieldName": "details",
+              "fieldValue": "={{ 'Alert ' + $json.alertId + ' resolved by ' + $json.resolvedBy }}"
+            },
+            {
+              "fieldName": "userId",
+              "fieldValue": "={{ $json.resolvedBy }}"
+            },
+            {
+              "fieldName": "timestamp",
+              "fieldValue": "={{ new Date().toISOString() }}"
+            }
+          ]
+        }
+      },
+      "id": "airtable-log-alert-resolution",
+      "name": "🗄️ Airtable - Log Resolution",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [
+        1060,
+        13600
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { success: true, message: 'Alerta resolvido com sucesso', alertId: $json.alertId, timestamp: new Date().toISOString() } }}",
+        "options": {
+          "headers": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          }
+        }
+      },
+      "id": "respond-resolve-alert",
+      "name": "📤 Respond - Resolve Alert",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1260,
+        13600
+      ]
+    }
+  ],
+  "connections": {
+    "webhook-resolve-alert": {
+      "main": [
+        [
+          {
+            "node": "code-resolve-alert-prep",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "respond-resolve-alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "code-resolve-alert-prep": {
+      "main": [
+        [
+          {
+            "node": "airtable-search-alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "airtable-search-alert": {
+      "main": [
+        [
+          {
+            "node": "airtable-resolve-alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "airtable-resolve-alert": {
+      "main": [
+        [
+          {
+            "node": "airtable-log-alert-resolution",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "airtable-log-alert-resolution": {
+      "main": [
+        [
+          {
+            "node": "respond-resolve-alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": [
+    "modular",
+    "elevea",
+    "admin"
+  ]
+}

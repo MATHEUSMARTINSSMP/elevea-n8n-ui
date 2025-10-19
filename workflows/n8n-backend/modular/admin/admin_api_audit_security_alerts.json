@@ -1,0 +1,161 @@
+{
+  "name": "admin_api_audit_security_alerts",
+  "description": "Workflow modular para api/audit/security-alerts - Módulo ADMIN",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "api/audit/security-alerts",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "webhook-security-alerts",
+      "name": "🔒 Webhook - Security Alerts",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [
+        260,
+        13400
+      ],
+      "webhookId": "elevea-security-alerts"
+    },
+    {
+      "parameters": {
+        "jsCode": "// FUNÇÃO: audit_get_security_alerts (do GAS linha 1427)\nconst out = [];\nfor (const { json } of items) {\n  const { site, siteSlug, severity, resolved = false } = json.body || {};\n  const normalizedSite = (site || siteSlug || '').toUpperCase();\n  \n  let searchFormula = normalizedSite ? `{site}='${normalizedSite}'` : '1=1';\n  \n  if (severity) {\n    searchFormula = `AND(${searchFormula}, {severity}='${severity}')`;  \n  }\n  \n  if (typeof resolved === 'boolean') {\n    searchFormula = `AND(${searchFormula}, {resolved}=${resolved ? 'TRUE()' : 'FALSE()'})`;\n  }\n  \n  out.push({\n    json: {\n      siteSlug: normalizedSite || 'ALL',\n      searchFormula: searchFormula,\n      needsAdminCheck: true,\n      timestamp: new Date().toISOString()\n    }\n  });\n}\nreturn out;"
+      },
+      "id": "code-security-alerts-prep",
+      "name": "📝 Code - Prepare Alerts Query",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        460,
+        13400
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "list",
+        "base": {
+          "__rl": true,
+          "value": "appELEVEA",
+          "mode": "list"
+        },
+        "table": {
+          "__rl": true,
+          "value": "security_alerts",
+          "mode": "list"
+        },
+        "returnAll": false,
+        "limit": 100,
+        "options": {
+          "filterByFormula": "={{ $json.searchFormula }}"
+        }
+      },
+      "id": "airtable-list-security-alerts",
+      "name": "🗄️ Airtable - List Alerts",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [
+        660,
+        13400
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Formatar e ordenar alertas por severity\nconst out = [];\nconst alerts = items.map(i => i.json.fields || i.json);\n\n// Ordem de severity\nconst severityOrder = { critical: 4, high: 3, medium: 2, low: 1 };\n\nalerts.sort((a, b) => {\n  const severityA = severityOrder[a.severity] || 0;\n  const severityB = severityOrder[b.severity] || 0;\n  if (severityA !== severityB) return severityB - severityA;\n  return new Date(b.createdAt) - new Date(a.createdAt);\n});\n\nconst criticalCount = alerts.filter(a => a.severity === 'critical').length;\nconst highCount = alerts.filter(a => a.severity === 'high').length;\nconst unresolvedCount = alerts.filter(a => !a.resolved).length;\n\nout.push({\n  json: {\n    success: true,\n    data: {\n      alerts: alerts,\n      total: alerts.length,\n      criticalCount: criticalCount,\n      highCount: highCount,\n      unresolvedCount: unresolvedCount\n    },\n    timestamp: new Date().toISOString()\n  }\n});\nreturn out;"
+      },
+      "id": "code-format-security-alerts",
+      "name": "📊 Code - Format Alerts",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        860,
+        13400
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {
+          "headers": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          }
+        }
+      },
+      "id": "respond-security-alerts",
+      "name": "📤 Respond - Security Alerts",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1060,
+        13400
+      ]
+    }
+  ],
+  "connections": {
+    "webhook-security-alerts": {
+      "main": [
+        [
+          {
+            "node": "code-security-alerts-prep",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "respond-security-alerts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "code-security-alerts-prep": {
+      "main": [
+        [
+          {
+            "node": "airtable-list-security-alerts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "airtable-list-security-alerts": {
+      "main": [
+        [
+          {
+            "node": "code-format-security-alerts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "code-format-security-alerts": {
+      "main": [
+        [
+          {
+            "node": "respond-security-alerts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": [
+    "modular",
+    "elevea",
+    "admin"
+  ]
+}

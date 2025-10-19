@@ -1,0 +1,522 @@
+{
+  "name": "whatsapp_api_whatsapp_evolution_webhook",
+  "description": "Workflow modular para api/whatsapp/evolution-webhook - Módulo WHATSAPP",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "api/whatsapp/evolution-webhook",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "webhook-wa-evolution-incoming",
+      "name": "📱 Webhook - WA Evolution Incoming",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [
+        260,
+        2900
+      ],
+      "webhookId": "elevea-wa-evolution-incoming"
+    },
+    {
+      "parameters": {
+        "jsCode": "// FUNÇÃO: wa_incoming / whatsapp_webhook (do GAS)\nconst out = [];\nfor (const { json } of items) {\n  const body = json.body || {};\n  const data = body.data || body;\n  \n  const phone = data.key?.remoteJid?.replace('@s.whatsapp.net', '') || data.from?.replace('@s.whatsapp.net', '');\n  const messageText = data.message?.conversation || data.message?.extendedTextMessage?.text || '';\n  const messageId = data.key?.id || 'unknown';\n  \n  if (!phone || !messageText) {\n    out.push({\n      json: {\n        success: false,\n        error: 'Mensagem inválida',\n        timestamp: new Date().toISOString()\n      }\n    });\n    continue;\n  }\n  \n  // Normalizar telefone\n  const normalizedPhone = phone.startsWith('55') ? phone : '55' + phone;\n  \n  out.push({\n    json: {\n      success: true,\n      messageId,\n      phone: normalizedPhone,\n      message: messageText,\n      needsResponse: true,\n      timestamp: new Date().toISOString()\n    }\n  });\n}\nreturn out;"
+      },
+      "id": "code-wa-incoming",
+      "name": "📱 Code - WA Incoming",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        460,
+        2900
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// FUNÇÃO: resolveSiteFromPhoneId_ (do GAS)\nconst out = [];\nfor (const { json } of items) {\n  // TODO: Implementar busca do site pelo telefone no Airtable\n  // Por enquanto, retornar 'default'\n  out.push({\n    json: {\n      ...json,\n      siteSlug: 'default', // TODO: buscar no Airtable whatsapp_contacts\n      timestamp: new Date().toISOString()\n    }\n  });\n}\nreturn out;"
+      },
+      "id": "code-resolve-site-from-phone",
+      "name": "🔍 Code - Resolve Site From Phone",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        660,
+        2900
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "search",
+        "base": {
+          "__rl": true,
+          "value": "appELEVEA",
+          "mode": "list"
+        },
+        "table": {
+          "__rl": true,
+          "value": "clients",
+          "mode": "list"
+        },
+        "filterByFormula": "=AND({siteSlug}='{{ $json.siteSlug }}')",
+        "options": {}
+      },
+      "id": "airtable-check-client-wa-incoming",
+      "name": "🗄️ Airtable - Check Client WA Incoming",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [
+        860,
+        2900
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Verificar se cliente tem IA habilitada (VIP)\nconst out = [];\nfor (const { json } of items) {\n  const client = json.fields || {};\n  const isVip = (client.plan || 'essential') === 'vip';\n  \n  out.push({\n    json: {\n      phone: json.phone,\n      message: json.message,\n      siteSlug: client.siteSlug,\n      canUseAI: isVip,\n      businessName: client.name || 'ELEVEA',\n      timestamp: new Date().toISOString()\n    }\n  });\n}\nreturn out;"
+      },
+      "id": "code-check-ai-permission",
+      "name": "✅ Code - Check AI Permission",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1060,
+        2900
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json.canUseAI }}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "if-can-use-ai",
+      "name": "🔀 IF - Can Use AI",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        1260,
+        2900
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://api.openai.com/v1/chat/completions",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ {\n  \"model\": \"gpt-4\",\n  \"messages\": [\n    {\n      \"role\": \"system\",\n      \"content\": \"Você é um assistente virtual da empresa \" + $json.businessName + \". Seja educado, profissional e prestativo. Responda de forma clara e objetiva em português do Brasil.\"\n    },\n    {\n      \"role\": \"user\",\n      \"content\": $json.message\n    }\n  ],\n  \"temperature\": 0.7,\n  \"max_tokens\": 500\n} }}",
+        "options": {}
+      },
+      "id": "http-openai-incoming",
+      "name": "🤖 HTTP - OpenAI Incoming",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1460,
+        2800
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Extrair resposta da IA\nconst out = [];\nfor (const { json } of items) {\n  const aiResponse = json.choices?.[0]?.message?.content || 'Desculpe, não consegui processar sua mensagem.';\n  out.push({\n    json: {\n      phone: json.phone,\n      siteSlug: json.siteSlug,\n      message: aiResponse,\n      isAIGenerated: true,\n      timestamp: new Date().toISOString()\n    }\n  });\n}\nreturn out;"
+      },
+      "id": "code-format-ai-incoming",
+      "name": "🤖 Code - Format AI Incoming",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1660,
+        2800
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://{{ $env.EVOLUTION_API_URL }}/message/sendText/{{ $env.EVOLUTION_INSTANCE }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ {\n  \"number\": $json.phone,\n  \"text\": $json.message\n} }}",
+        "options": {}
+      },
+      "id": "http-evolution-send-response",
+      "name": "📱 HTTP - Evolution Send Response",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1860,
+        2900
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Salvar mensagem recebida + resposta\nconst out = [];\nfor (const { json } of items) {\n  // Mensagem recebida\n  out.push({\n    json: {\n      messageId: json.messageId || 'inc_' + Date.now(),\n      siteSlug: json.siteSlug,\n      phone: json.phone,\n      messageText: json.originalMessage || json.message,\n      direction: 'incoming',\n      status: 'received',\n      apiProvider: 'evolution',\n      timestamp: new Date().toISOString()\n    }\n  });\n  \n  // Mensagem enviada (resposta)\n  out.push({\n    json: {\n      messageId: json.key?.id || 'out_' + Date.now(),\n      siteSlug: json.siteSlug,\n      phone: json.phone,\n      messageText: json.message,\n      direction: 'outgoing',\n      status: 'sent',\n      apiProvider: 'evolution',\n      metadata: JSON.stringify({ isAIGenerated: json.isAIGenerated }),\n      timestamp: new Date().toISOString()\n    }\n  });\n}\nreturn out;"
+      },
+      "id": "code-prepare-wa-conversation-save",
+      "name": "📝 Code - Prepare WA Conversation Save",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2060,
+        2900
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "base": {
+          "__rl": true,
+          "value": "appELEVEA",
+          "mode": "list"
+        },
+        "table": {
+          "__rl": true,
+          "value": "whatsapp_messages",
+          "mode": "list"
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldName": "message_id",
+              "fieldValue": "={{ $json.messageId }}"
+            },
+            {
+              "fieldName": "site_slug",
+              "fieldValue": "={{ $json.siteSlug }}"
+            },
+            {
+              "fieldName": "phone_number",
+              "fieldValue": "={{ $json.phone }}"
+            },
+            {
+              "fieldName": "message_text",
+              "fieldValue": "={{ $json.messageText }}"
+            },
+            {
+              "fieldName": "direction",
+              "fieldValue": "={{ $json.direction }}"
+            },
+            {
+              "fieldName": "status",
+              "fieldValue": "={{ $json.status }}"
+            },
+            {
+              "fieldName": "api_provider",
+              "fieldValue": "evolution"
+            },
+            {
+              "fieldName": "metadata",
+              "fieldValue": "={{ $json.metadata }}"
+            }
+          ]
+        }
+      },
+      "id": "airtable-insert-wa-conversation",
+      "name": "🗄️ Airtable - Insert WA Conversation",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [
+        2260,
+        2900
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { success: true, message: 'Mensagem processada e respondida', timestamp: new Date().toISOString() } }}",
+        "options": {
+          "headers": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          }
+        }
+      },
+      "id": "respond-wa-evolution-incoming",
+      "name": "📤 Respond - WA Evolution Incoming",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        2460,
+        2900
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { success: true, message: '🔀 IF - Can Use AI processado', timestamp: new Date().toISOString() } }}",
+        "options": {}
+      },
+      "id": "respond-if-can-use-ai",
+      "name": "📤 Respond - Can Use AI",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        800,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Resposta padrão sem IA\nconst out = [];\nfor (const { json } of items) {\n  out.push({\n    json: {\n      phone: json.phone,\n      siteSlug: json.siteSlug,\n      message: 'Obrigado pela mensagem! Em breve entraremos em contato. Para upgrade e acesso a respostas com IA, visite agenciaelevea.com/upgrade',\n      isAIGenerated: false,\n      timestamp: new Date().toISOString()\n    }\n  });\n}\nreturn out;"
+      },
+      "id": "code-default-response",
+      "name": "💬 Code - Default Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1660,
+        3000
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { success: true, message: '✅ Code - Check AI Permission processado', timestamp: new Date().toISOString() } }}",
+        "options": {}
+      },
+      "id": "respond-code-check-ai-permission",
+      "name": "📤 Respond - Check AI Permission",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        800,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { success: true, message: '🗄️ Airtable - Check Client WA Incoming processado', timestamp: new Date().toISOString() } }}",
+        "options": {}
+      },
+      "id": "respond-airtable-check-client-wa-incoming",
+      "name": "📤 Respond - Check Client WA Incoming",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        800,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { success: true, message: '🔍 Code - Resolve Site From Phone processado', timestamp: new Date().toISOString() } }}",
+        "options": {}
+      },
+      "id": "respond-code-resolve-site-from-phone",
+      "name": "📤 Respond - Resolve Site From Phone",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        800,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { success: true, message: '📱 Code - WA Incoming processado', timestamp: new Date().toISOString() } }}",
+        "options": {}
+      },
+      "id": "respond-code-wa-incoming",
+      "name": "📤 Respond - WA Incoming",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        800,
+        100
+      ]
+    }
+  ],
+  "connections": {
+    "webhook-wa-evolution-incoming": {
+      "main": [
+        [
+          {
+            "node": "code-wa-incoming",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "respond-wa-evolution-incoming",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "code-wa-incoming": {
+      "main": [
+        [
+          {
+            "node": "code-resolve-site-from-phone",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "respond-code-wa-incoming",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "code-resolve-site-from-phone": {
+      "main": [
+        [
+          {
+            "node": "airtable-check-client-wa-incoming",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "respond-code-resolve-site-from-phone",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "airtable-check-client-wa-incoming": {
+      "main": [
+        [
+          {
+            "node": "code-check-ai-permission",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "respond-airtable-check-client-wa-incoming",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "code-check-ai-permission": {
+      "main": [
+        [
+          {
+            "node": "if-can-use-ai",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "respond-code-check-ai-permission",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "if-can-use-ai": {
+      "main": [
+        [
+          {
+            "node": "http-openai-incoming",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "respond-if-can-use-ai",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "code-default-response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "http-openai-incoming": {
+      "main": [
+        [
+          {
+            "node": "code-format-ai-incoming",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "code-format-ai-incoming": {
+      "main": [
+        [
+          {
+            "node": "http-evolution-send-response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "http-evolution-send-response": {
+      "main": [
+        [
+          {
+            "node": "code-prepare-wa-conversation-save",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "code-prepare-wa-conversation-save": {
+      "main": [
+        [
+          {
+            "node": "airtable-insert-wa-conversation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "airtable-insert-wa-conversation": {
+      "main": [
+        [
+          {
+            "node": "respond-wa-evolution-incoming",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "code-default-response": {
+      "main": [
+        [
+          {
+            "node": "http-evolution-send-response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": [
+    "modular",
+    "elevea",
+    "whatsapp"
+  ]
+}

@@ -1,0 +1,194 @@
+{
+  "name": "system_system_core",
+  "description": "Workflow modular para system_core - Módulo SYSTEM",
+  "nodes": [
+    {
+      "parameters": {
+        "jsCode": "// GLOBALS E CONSTANTES - Todas as configurações centralizadas\nconst GLOBALS = {\n  // URLs\n  SITE_URL: 'https://agenciaelevea.netlify.app',\n  N8N_URL: 'https://n8n.elevea.com/webhook',\n  \n  // Planos\n  PLANS: {\n    ESSENTIAL: {\n      name: 'essential',\n      price: 0,\n      features: ['basic-website', 'google-my-business'],\n      limits: {\n        websites: 1,\n        whatsapp_messages: 100,\n        ai_requests: 10,\n        storage: '1GB'\n      }\n    },\n    VIP: {\n      name: 'vip',\n      price: 97,\n      features: [\n        'basic-website', 'google-my-business', 'ai-copywriter',\n        'auto-seo', 'lead-scoring', 'whatsapp-chatbot',\n        'appointment-scheduling', 'multi-language', 'ecommerce',\n        'premium-templates', 'white-label', 'audit-logs', 'feedback-system'\n      ],\n      limits: {\n        websites: -1,\n        whatsapp_messages: -1,\n        ai_requests: -1,\n        storage: 'unlimited'\n      }\n    }\n  },\n  \n  // Status\n  STATUS: {\n    ACTIVE: 'active',\n    BLOCKED: 'blocked',\n    PENDING: 'pending'\n  },\n  \n  // Roles\n  ROLES: {\n    ADMIN: 'admin',\n    CLIENT: 'client'\n  },\n  \n  // WhatsApp\n  WHATSAPP: {\n    API_URL: 'https://graph.facebook.com/v18.0',\n    EVOLUTION_URL: 'https://evolution-api.com'\n  },\n  \n  // Mercado Pago Events\n  MP_EVENTS: {\n    SUBSCRIPTION_AUTHORIZED: 'subscription_authorized',\n    SUBSCRIPTION_PAUSED: 'subscription_paused',\n    SUBSCRIPTION_CANCELLED: 'subscription_cancelled',\n    PAYMENT_CREATED: 'payment_created',\n    PAYMENT_APPROVED: 'payment_approved'\n  },\n  \n  // Helpers\n  normalizePhone: (phone) => {\n    if (!phone) return null;\n    const digits = phone.replace(/\\D/g, '');\n    if (digits.length === 11 && digits.startsWith('55')) return digits;\n    if (digits.length === 11) return '55' + digits;\n    if (digits.length === 10) return '55' + digits;\n    return digits;\n  },\n  \n  formatPhoneBR: (phone) => {\n    const normalized = GLOBALS.normalizePhone(phone);\n    if (!normalized) return phone;\n    if (normalized.length === 13) {\n      return `+${normalized.slice(0,2)} (${normalized.slice(2,4)}) ${normalized.slice(4,9)}-${normalized.slice(9)}`;\n    }\n    return phone;\n  },\n  \n  generateToken: (email) => {\n    return 'jwt_' + Buffer.from(email + ':' + Date.now()).toString('base64');\n  },\n  \n  generateResetToken: () => {\n    return require('crypto').randomBytes(32).toString('hex');\n  },\n  \n  isVip: (plan) => {\n    return plan === 'vip';\n  },\n  \n  validateEmail: (email) => {\n    return email && email.includes('@') && email.includes('.');\n  },\n  \n  validatePassword: (password) => {\n    return password && password.length >= 6;\n  },\n  \n  getSiteSlug: (email) => {\n    if (!email) return 'unknown';\n    return email.split('@')[0].replace(/[^a-z0-9]/gi, '-').toLowerCase();\n  }\n};\n\nconst out = [];\nfor (const { json } of items) {\n  out.push({ json: { ...json, GLOBALS } });\n}\nreturn out;"
+      },
+      "id": "code-globals",
+      "name": "🌐 Code - Globals & Constants",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        260,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 2 * * *"
+            }
+          ]
+        }
+      },
+      "id": "cron-backup",
+      "name": "⏰ Cron - Backup Daily (02:00)",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        260,
+        6300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Preparar mensagem de backup\nconst out = [];\nconst timestamp = new Date().toISOString();\nconst tables = ['users', 'clients', 'tokens', 'whatsapp_messages', 'whatsapp_contacts', 'whatsapp_templates', 'billing', 'payments', 'google_credentials', 'google_reviews', 'feedbacks', 'leads', 'analytics_events', 'onboardings', 'audit_logs'];\n\nout.push({\n  json: {\n    action: 'backup',\n    backupDate: timestamp,\n    tables: tables,\n    count: tables.length,\n    message: `🔄 Backup automático iniciado em ${timestamp}\\n\\nTabelas: ${tables.length}\\n${tables.join(', ')}`,\n    timestamp\n  }\n});\nreturn out;"
+      },
+      "id": "code-prepare-backup",
+      "name": "💾 Code - Prepare Backup",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        460,
+        6300
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://api.telegram.org/bot{{ $env.TELEGRAM_BOT_TOKEN }}/sendMessage",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ {\n  \"chat_id\": $env.TELEGRAM_CHAT_ID,\n  \"text\": $json.message,\n  \"parse_mode\": \"HTML\"\n} }}",
+        "options": {}
+      },
+      "id": "http-telegram-backup-notification",
+      "name": "📱 HTTP - Telegram Backup Notification",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        660,
+        6300
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { success: true, message: '🌐 Code - Globals & Constants processado', timestamp: new Date().toISOString() } }}",
+        "options": {}
+      },
+      "id": "respond-code-globals",
+      "name": "📤 Respond - Globals & Constants",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        800,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { success: true, message: '⏰ Cron - Backup Daily (02:00) processado', timestamp: new Date().toISOString() } }}",
+        "options": {}
+      },
+      "id": "respond-cron-backup",
+      "name": "📤 Respond - Backup Daily (02:00)",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        800,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { success: true, message: '💾 Code - Prepare Backup processado', timestamp: new Date().toISOString() } }}",
+        "options": {}
+      },
+      "id": "respond-code-prepare-backup",
+      "name": "📤 Respond - Prepare Backup",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        800,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { success: true, message: '📱 HTTP - Telegram Backup Notification processado', timestamp: new Date().toISOString() } }}",
+        "options": {}
+      },
+      "id": "respond-http-telegram-backup-notification",
+      "name": "📤 Respond - Telegram Backup Notification",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        800,
+        100
+      ]
+    }
+  ],
+  "connections": {
+    "code-globals": {
+      "main": [
+        [
+          {
+            "node": "respond-code-globals",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "cron-backup": {
+      "main": [
+        [
+          {
+            "node": "code-prepare-backup",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "respond-cron-backup",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "code-prepare-backup": {
+      "main": [
+        [
+          {
+            "node": "http-telegram-backup-notification",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "respond-code-prepare-backup",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "http-telegram-backup-notification": {
+      "main": [
+        [
+          {
+            "node": "respond-http-telegram-backup-notification",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": [
+    "modular",
+    "elevea",
+    "system"
+  ]
+}

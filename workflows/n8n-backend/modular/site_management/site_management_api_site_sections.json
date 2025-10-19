@@ -1,0 +1,158 @@
+{
+  "name": "site_management_api_site_sections",
+  "description": "Workflow modular para api/site/sections - Módulo SITE_MANAGEMENT",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "GET",
+        "path": "api/site/sections",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "webhook-site-sections",
+      "name": "📑 Webhook - Site Sections",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [
+        260,
+        7500
+      ],
+      "webhookId": "elevea-site-sections"
+    },
+    {
+      "parameters": {
+        "jsCode": "// FUNÇÃO: get_site_sections (do GAS)\nconst out = [];\nfor (const { json } of items) {\n  const query = json.query || {};\n  const { siteSlug } = query;\n  \n  if (!siteSlug) {\n    out.push({\n      json: {\n        success: false,\n        error: 'siteSlug é obrigatório',\n        timestamp: new Date().toISOString()\n      }\n    });\n    continue;\n  }\n  \n  out.push({ json: { siteSlug, timestamp: new Date().toISOString() } });\n}\nreturn out;"
+      },
+      "id": "code-site-sections",
+      "name": "📑 Code - Site Sections",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        460,
+        7500
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "search",
+        "base": {
+          "__rl": true,
+          "value": "appELEVEA",
+          "mode": "list"
+        },
+        "table": {
+          "__rl": true,
+          "value": "site_structures",
+          "mode": "list"
+        },
+        "filterByFormula": "=AND({siteSlug}='{{ $json.siteSlug }}')",
+        "options": {}
+      },
+      "id": "airtable-search-site-sections",
+      "name": "🗄️ Airtable - Search Site Sections",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [
+        660,
+        7500
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Extrair e formatar seções\nconst out = [];\nfor (const { json } of items) {\n  const fields = json.fields || {};\n  const sections = JSON.parse(fields.sections || '[]');\n  \n  out.push({\n    json: {\n      success: true,\n      siteSlug: fields.site_slug,\n      sections: sections.map(s => ({\n        id: s.id,\n        type: s.type,\n        name: s.name,\n        visible: s.visible !== false,\n        order: s.order || 0,\n        content: s.content || {}\n      })),\n      count: sections.length,\n      timestamp: new Date().toISOString()\n    }\n  });\n}\nreturn out;"
+      },
+      "id": "code-format-site-sections",
+      "name": "📑 Code - Format Site Sections",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        860,
+        7500
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {
+          "headers": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          }
+        }
+      },
+      "id": "respond-site-sections",
+      "name": "📤 Respond - Site Sections",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1060,
+        7500
+      ]
+    }
+  ],
+  "connections": {
+    "webhook-site-sections": {
+      "main": [
+        [
+          {
+            "node": "code-site-sections",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "respond-site-sections",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "code-site-sections": {
+      "main": [
+        [
+          {
+            "node": "airtable-search-site-sections",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "airtable-search-site-sections": {
+      "main": [
+        [
+          {
+            "node": "code-format-site-sections",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "code-format-site-sections": {
+      "main": [
+        [
+          {
+            "node": "respond-site-sections",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": [
+    "modular",
+    "elevea",
+    "site_management"
+  ]
+}

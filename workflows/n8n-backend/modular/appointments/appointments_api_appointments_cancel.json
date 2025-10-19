@@ -1,0 +1,267 @@
+{
+  "name": "appointments_api_appointments_cancel",
+  "description": "Workflow modular para api/appointments/cancel - Módulo APPOINTMENTS",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "api/appointments/cancel",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "webhook-appointment-cancel",
+      "name": "📅 Webhook - Appointment Cancel",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [
+        260,
+        12700
+      ],
+      "webhookId": "elevea-appointment-cancel"
+    },
+    {
+      "parameters": {
+        "jsCode": "// FUNÇÃO: appointment_cancel (lógica do GAS)\nconst out = [];\nfor (const { json } of items) {\n  const { appointmentId, reason } = json.body || {};\n  \n  if (!appointmentId) {\n    out.push({\n      json: {\n        success: false,\n        error: 'Appointment ID é obrigatório',\n        timestamp: new Date().toISOString()\n      }\n    });\n    continue;\n  }\n  \n  out.push({\n    json: {\n      appointmentId: appointmentId,\n      reason: reason || 'Cancelado pelo cliente',\n      searchFormula: `{id}='${appointmentId}'`,\n      timestamp: new Date().toISOString()\n    }\n  });\n}\nreturn out;"
+      },
+      "id": "code-appointment-cancel-prep",
+      "name": "📝 Code - Prepare Cancel",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        460,
+        12700
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "search",
+        "base": {
+          "__rl": true,
+          "value": "appELEVEA",
+          "mode": "list"
+        },
+        "table": {
+          "__rl": true,
+          "value": "appointments",
+          "mode": "list"
+        },
+        "filterByFormula": "={{ $json.searchFormula }}",
+        "options": {}
+      },
+      "id": "airtable-search-appointment-cancel",
+      "name": "🗄️ Airtable - Search Appointment",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [
+        660,
+        12700
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "base": {
+          "__rl": true,
+          "value": "appELEVEA",
+          "mode": "list"
+        },
+        "table": {
+          "__rl": true,
+          "value": "appointments",
+          "mode": "list"
+        },
+        "id": "={{ $json.id }}",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldName": "status",
+              "fieldValue": "cancelled"
+            },
+            {
+              "fieldName": "cancelledAt",
+              "fieldValue": "={{ new Date().toISOString() }}"
+            },
+            {
+              "fieldName": "cancellationReason",
+              "fieldValue": "={{ $json.reason }}"
+            }
+          ]
+        }
+      },
+      "id": "airtable-cancel-appointment",
+      "name": "🗄️ Airtable - Cancel Appointment",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [
+        860,
+        12700
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Preparar mensagem WhatsApp de cancelamento\nconst out = [];\nfor (const { json } of items) {\n  const fields = json.fields || {};\n  const phone = (fields.customerPhone || '').replace(/\\D/g, '');\n  const name = fields.customerName || 'Cliente';\n  const datetime = fields.datetime || '';\n  \n  const message = `Olá ${name}! Seu agendamento para ${datetime} foi cancelado. Entre em contato para reagendar se desejar.`;\n  \n  out.push({\n    json: {\n      to: phone.length === 11 ? '55' + phone : phone,\n      message: message,\n      customerEmail: fields.customerEmail,\n      appointmentId: fields.id,\n      timestamp: new Date().toISOString()\n    }\n  });\n}\nreturn out;"
+      },
+      "id": "code-prep-cancel-whatsapp",
+      "name": "📱 Code - Prep WhatsApp Cancel",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1060,
+        12700
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://graph.facebook.com/v18.0/PHONE_ID/messages",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer {{ $json.WHATSAPP_TOKEN }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "messaging_product",
+              "value": "whatsapp"
+            },
+            {
+              "name": "to",
+              "value": "={{ $json.to }}"
+            },
+            {
+              "name": "type",
+              "value": "text"
+            },
+            {
+              "name": "text",
+              "value": "={{ { body: $json.message } }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "http-whatsapp-cancel-notif",
+      "name": "📱 HTTP - WhatsApp Cancel Notif",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        1260,
+        12700
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { success: true, message: 'Agendamento cancelado e notificação enviada', timestamp: new Date().toISOString() } }}",
+        "options": {
+          "headers": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          }
+        }
+      },
+      "id": "respond-appointment-cancel",
+      "name": "📤 Respond - Appointment Cancel",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1460,
+        12700
+      ]
+    }
+  ],
+  "connections": {
+    "webhook-appointment-cancel": {
+      "main": [
+        [
+          {
+            "node": "code-appointment-cancel-prep",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "respond-appointment-cancel",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "code-appointment-cancel-prep": {
+      "main": [
+        [
+          {
+            "node": "airtable-search-appointment-cancel",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "airtable-search-appointment-cancel": {
+      "main": [
+        [
+          {
+            "node": "airtable-cancel-appointment",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "airtable-cancel-appointment": {
+      "main": [
+        [
+          {
+            "node": "code-prep-cancel-whatsapp",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "code-prep-cancel-whatsapp": {
+      "main": [
+        [
+          {
+            "node": "http-whatsapp-cancel-notif",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "http-whatsapp-cancel-notif": {
+      "main": [
+        [
+          {
+            "node": "respond-appointment-cancel",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": [
+    "modular",
+    "elevea",
+    "appointments"
+  ]
+}

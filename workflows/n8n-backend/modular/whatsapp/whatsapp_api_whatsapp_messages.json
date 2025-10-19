@@ -1,0 +1,165 @@
+{
+  "name": "whatsapp_api_whatsapp_messages",
+  "description": "Workflow modular para api/whatsapp/messages - Módulo WHATSAPP",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "GET",
+        "path": "api/whatsapp/messages",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "webhook-wa-list-messages",
+      "name": "📱 Webhook - WA List Messages",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [
+        260,
+        3100
+      ],
+      "webhookId": "elevea-wa-list-messages"
+    },
+    {
+      "parameters": {
+        "jsCode": "// FUNÇÃO: wa_list_messages / listWhatsAppMessages_ (do GAS)\nconst out = [];\nfor (const { json } of items) {\n  const query = json.query || {};\n  const { siteSlug, phone, limit } = query;\n  \n  out.push({\n    json: {\n      siteSlug: siteSlug || 'all',\n      phone: phone || null,\n      limit: parseInt(limit) || 100,\n      timestamp: new Date().toISOString()\n    }\n  });\n}\nreturn out;"
+      },
+      "id": "code-wa-list-messages",
+      "name": "📱 Code - WA List Messages",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        460,
+        3100
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "list",
+        "base": {
+          "__rl": true,
+          "value": "appELEVEA",
+          "mode": "list"
+        },
+        "table": {
+          "__rl": true,
+          "value": "whatsapp_messages",
+          "mode": "list"
+        },
+        "limit": "={{ $json.limit }}",
+        "options": {
+          "sort": [
+            {
+              "field": "created_at",
+              "direction": "desc"
+            }
+          ]
+        }
+      },
+      "id": "airtable-list-wa-messages",
+      "name": "🗄️ Airtable - List WA Messages",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [
+        660,
+        3100
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Formatar lista de mensagens\nconst out = [];\nconst messages = [];\n\nfor (const { json } of items) {\n  const fields = json.fields || {};\n  messages.push({\n    messageId: fields.message_id,\n    siteSlug: fields.site_slug,\n    phone: fields.phone_number,\n    message: fields.message_text,\n    direction: fields.direction,\n    status: fields.status,\n    apiProvider: fields.api_provider,\n    createdAt: fields.created_at\n  });\n}\n\nout.push({\n  json: {\n    success: true,\n    messages: messages,\n    count: messages.length,\n    timestamp: new Date().toISOString()\n  }\n});\nreturn out;"
+      },
+      "id": "code-format-wa-messages-list",
+      "name": "📱 Code - Format WA Messages List",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        860,
+        3100
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {
+          "headers": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          }
+        }
+      },
+      "id": "respond-wa-list-messages",
+      "name": "📤 Respond - WA List Messages",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1060,
+        3100
+      ]
+    }
+  ],
+  "connections": {
+    "webhook-wa-list-messages": {
+      "main": [
+        [
+          {
+            "node": "code-wa-list-messages",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "respond-wa-list-messages",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "code-wa-list-messages": {
+      "main": [
+        [
+          {
+            "node": "airtable-list-wa-messages",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "airtable-list-wa-messages": {
+      "main": [
+        [
+          {
+            "node": "code-format-wa-messages-list",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "code-format-wa-messages-list": {
+      "main": [
+        [
+          {
+            "node": "respond-wa-list-messages",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": [
+    "modular",
+    "elevea",
+    "whatsapp"
+  ]
+}

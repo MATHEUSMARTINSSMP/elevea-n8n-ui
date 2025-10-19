@@ -1,0 +1,219 @@
+{
+  "name": "whatsapp_api_whatsapp_contacts_import",
+  "description": "Workflow modular para api/whatsapp/contacts/import - Módulo WHATSAPP",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "api/whatsapp/contacts/import",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "webhook-wa-contacts-import",
+      "name": "📱 Webhook - WhatsApp Import Contacts",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [
+        260,
+        11200
+      ],
+      "webhookId": "elevea-wa-contacts-import"
+    },
+    {
+      "parameters": {
+        "jsCode": "// FUNÇÃO: wa_import_contacts (do GAS linha 1192)\nconst crypto = require('crypto');\nconst out = [];\n\nfor (const { json } of items) {\n  const { site, siteSlug, contacts = [] } = json.body || {};\n  const normalizedSite = (site || siteSlug || '').toUpperCase();\n  \n  if (!normalizedSite) {\n    out.push({\n      json: {\n        success: false,\n        error: 'Site é obrigatório',\n        timestamp: new Date().toISOString()\n      }\n    });\n    continue;\n  }\n  \n  if (!Array.isArray(contacts) || contacts.length === 0) {\n    out.push({\n      json: {\n        success: false,\n        error: 'Lista de contatos é obrigatória e deve ter ao menos 1 item',\n        timestamp: new Date().toISOString()\n      }\n    });\n    continue;\n  }\n  \n  // Validar e normalizar cada contato\n  const validContacts = [];\n  const errors = [];\n  \n  contacts.forEach((contact, index) => {\n    const phone = (contact.phone || contact.telefone || '').replace(/\\D/g, '');\n    const nome = (contact.nome || contact.name || '').trim();\n    \n    if (!phone) {\n      errors.push({ index, error: 'Telefone obrigatório' });\n      return;\n    }\n    \n    if (!nome) {\n      errors.push({ index, error: 'Nome obrigatório' });\n      return;\n    }\n    \n    // Normalizar telefone para E.164 BR\n    let normalized = phone;\n    if (phone.length === 11 && !phone.startsWith('55')) {\n      normalized = '55' + phone;\n    } else if (phone.length === 10) {\n      normalized = '55' + phone.substring(0, 2) + '9' + phone.substring(2);\n    } else if (phone.length === 9) {\n      normalized = '5596' + phone;\n    } else if (phone.length === 8) {\n      normalized = '55969' + phone;\n    }\n    \n    validContacts.push({\n      id: crypto.randomUUID(),\n      siteSlug: normalizedSite,\n      nome: nome,\n      telefone_normalizado: normalized,\n      empresa: contact.empresa || '',\n      email: contact.email || '',\n      tags: contact.tags || '',\n      profilePicUrl: contact.profilePicUrl || '',\n      ativo: true,\n      criado_em: new Date().toISOString(),\n      atualizado_em: new Date().toISOString()\n    });\n  });\n  \n  // Emitir cada contato válido separadamente para o Airtable\n  validContacts.forEach(contact => {\n    out.push({ json: contact });\n  });\n  \n  // Adicionar um último item com o resumo\n  if (validContacts.length > 0) {\n    out.push({\n      json: {\n        __summary: true,\n        success: true,\n        siteSlug: normalizedSite,\n        total: contacts.length,\n        valid: validContacts.length,\n        errors: errors.length,\n        errorDetails: errors,\n        timestamp: new Date().toISOString()\n      }\n    });\n  }\n}\nreturn out;"
+      },
+      "id": "code-wa-import-validate",
+      "name": "✅ Code - Validate Import",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        460,
+        11200
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "base": {
+          "__rl": true,
+          "value": "appELEVEA",
+          "mode": "list"
+        },
+        "table": {
+          "__rl": true,
+          "value": "whatsapp_contacts",
+          "mode": "list"
+        },
+        "options": {
+          "bulkSize": 10,
+          "ignoreErrors": true
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldName": "id",
+              "fieldValue": "={{ $json.id }}"
+            },
+            {
+              "fieldName": "siteSlug",
+              "fieldValue": "={{ $json.siteSlug }}"
+            },
+            {
+              "fieldName": "nome",
+              "fieldValue": "={{ $json.nome }}"
+            },
+            {
+              "fieldName": "telefone_normalizado",
+              "fieldValue": "={{ $json.telefone_normalizado }}"
+            },
+            {
+              "fieldName": "empresa",
+              "fieldValue": "={{ $json.empresa }}"
+            },
+            {
+              "fieldName": "email",
+              "fieldValue": "={{ $json.email }}"
+            },
+            {
+              "fieldName": "tags",
+              "fieldValue": "={{ $json.tags }}"
+            },
+            {
+              "fieldName": "profilePicUrl",
+              "fieldValue": "={{ $json.profilePicUrl }}"
+            },
+            {
+              "fieldName": "ativo",
+              "fieldValue": "={{ $json.ativo }}"
+            },
+            {
+              "fieldName": "criado_em",
+              "fieldValue": "={{ $json.criado_em }}"
+            }
+          ]
+        }
+      },
+      "id": "airtable-append-wa-contacts-bulk",
+      "name": "🗄️ Airtable - Append Contacts Bulk",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [
+        660,
+        11200
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Consolidar resultado da importação\nconst summaryItem = items.find(i => i.json.__summary);\n\nif (summaryItem) {\n  return [summaryItem];\n}\n\nconst out = [{\n  json: {\n    success: true,\n    data: {\n      imported: items.filter(i => i.json.id).length,\n      total: items.length,\n      message: `${items.length} contatos importados com sucesso`\n    },\n    timestamp: new Date().toISOString()\n  }\n}];\nreturn out;"
+      },
+      "id": "code-wa-import-summary",
+      "name": "📊 Code - Import Summary",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        860,
+        11200
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {
+          "headers": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          }
+        }
+      },
+      "id": "respond-wa-import",
+      "name": "📤 Respond - WA Import",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1060,
+        11200
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { success: true, message: '📱 Webhook - WhatsApp Import Contacts processado', timestamp: new Date().toISOString() } }}",
+        "options": {}
+      },
+      "id": "respond-webhook-wa-contacts-import",
+      "name": "📤 Respond - WhatsApp Import Contacts",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        800,
+        100
+      ]
+    }
+  ],
+  "connections": {
+    "webhook-wa-contacts-import": {
+      "main": [
+        [
+          {
+            "node": "code-wa-import-validate",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "respond-webhook-wa-contacts-import",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "code-wa-import-validate": {
+      "main": [
+        [
+          {
+            "node": "airtable-append-wa-contacts-bulk",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "airtable-append-wa-contacts-bulk": {
+      "main": [
+        [
+          {
+            "node": "code-wa-import-summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "code-wa-import-summary": {
+      "main": [
+        [
+          {
+            "node": "respond-wa-import",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": [
+    "modular",
+    "elevea",
+    "whatsapp"
+  ]
+}

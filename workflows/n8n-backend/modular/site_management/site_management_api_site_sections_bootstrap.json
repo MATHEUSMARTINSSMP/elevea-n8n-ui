@@ -1,0 +1,212 @@
+{
+  "name": "site_management_api_site_sections_bootstrap",
+  "description": "Workflow modular para api/site/sections/bootstrap - Módulo SITE_MANAGEMENT",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "api/site/sections/bootstrap",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "webhook-sections-bootstrap",
+      "name": "📑 Webhook - Sections Bootstrap",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [
+        260,
+        7900
+      ],
+      "webhookId": "elevea-sections-bootstrap"
+    },
+    {
+      "parameters": {
+        "jsCode": "// FUNÇÃO: sections_bootstrap_from_onboarding (do GAS)\nconst out = [];\nfor (const { json } of items) {\n  const { siteSlug } = json.body || {};\n  \n  if (!siteSlug) {\n    out.push({\n      json: {\n        success: false,\n        error: 'siteSlug é obrigatório',\n        timestamp: new Date().toISOString()\n      }\n    });\n    continue;\n  }\n  \n  out.push({ json: { siteSlug, timestamp: new Date().toISOString() } });\n}\nreturn out;"
+      },
+      "id": "code-sections-bootstrap",
+      "name": "📑 Code - Sections Bootstrap",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        460,
+        7900
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "search",
+        "base": {
+          "__rl": true,
+          "value": "appELEVEA",
+          "mode": "list"
+        },
+        "table": {
+          "__rl": true,
+          "value": "onboardings",
+          "mode": "list"
+        },
+        "filterByFormula": "=AND({siteSlug}='{{ $json.siteSlug }}')",
+        "options": {}
+      },
+      "id": "airtable-search-onboarding-for-bootstrap",
+      "name": "🗄️ Airtable - Search Onboarding For Bootstrap",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [
+        660,
+        7900
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Criar seções padrão a partir do onboarding\nconst out = [];\nfor (const { json } of items) {\n  const fields = json.fields || {};\n  const colors = JSON.parse(fields.colors || '[\"#007bff\", \"#28a745\"]');\n  const socialLinks = JSON.parse(fields.social_links || '{}');\n  const contactInfo = JSON.parse(fields.contact_info || '{}');\n  \n  const defaultSections = [\n    {\n      id: 'hero',\n      type: 'hero',\n      name: 'Hero Section',\n      visible: true,\n      order: 0,\n      content: {\n        title: fields.business_name,\n        subtitle: fields.business_description,\n        cta: 'Saiba mais',\n        image: fields.logo_url\n      }\n    },\n    {\n      id: 'about',\n      type: 'about',\n      name: 'Sobre',\n      visible: true,\n      order: 1,\n      content: {\n        title: 'Sobre ' + fields.business_name,\n        description: fields.business_description,\n        targetAudience: fields.target_audience\n      }\n    },\n    {\n      id: 'services',\n      type: 'services',\n      name: 'Serviços',\n      visible: true,\n      order: 2,\n      content: {\n        title: 'Nossos Serviços',\n        items: []\n      }\n    },\n    {\n      id: 'testimonials',\n      type: 'testimonials',\n      name: 'Depoimentos',\n      visible: true,\n      order: 3,\n      content: {\n        title: 'O que dizem nossos clientes',\n        items: []\n      }\n    },\n    {\n      id: 'contact',\n      type: 'contact',\n      name: 'Contato',\n      visible: true,\n      order: 4,\n      content: contactInfo\n    }\n  ];\n  \n  out.push({\n    json: {\n      siteSlug: fields.site_slug,\n      sections: JSON.stringify(defaultSections),\n      theme: 'default',\n      layout: 'standard',\n      timestamp: new Date().toISOString()\n    }\n  });\n}\nreturn out;"
+      },
+      "id": "code-generate-default-sections",
+      "name": "📑 Code - Generate Default Sections",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        860,
+        7900
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "base": {
+          "__rl": true,
+          "value": "appELEVEA",
+          "mode": "list"
+        },
+        "table": {
+          "__rl": true,
+          "value": "site_structures",
+          "mode": "list"
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldName": "site_slug",
+              "fieldValue": "={{ $json.siteSlug }}"
+            },
+            {
+              "fieldName": "sections",
+              "fieldValue": "={{ $json.sections }}"
+            },
+            {
+              "fieldName": "theme",
+              "fieldValue": "default"
+            },
+            {
+              "fieldName": "layout",
+              "fieldValue": "standard"
+            }
+          ]
+        }
+      },
+      "id": "airtable-insert-bootstrapped-sections",
+      "name": "🗄️ Airtable - Insert Bootstrapped Sections",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [
+        1060,
+        7900
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { success: true, message: 'Seções iniciais criadas', siteSlug: $json.siteSlug, timestamp: new Date().toISOString() } }}",
+        "options": {
+          "headers": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          }
+        }
+      },
+      "id": "respond-sections-bootstrap",
+      "name": "📤 Respond - Sections Bootstrap",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1260,
+        7900
+      ]
+    }
+  ],
+  "connections": {
+    "webhook-sections-bootstrap": {
+      "main": [
+        [
+          {
+            "node": "code-sections-bootstrap",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "respond-sections-bootstrap",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "code-sections-bootstrap": {
+      "main": [
+        [
+          {
+            "node": "airtable-search-onboarding-for-bootstrap",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "airtable-search-onboarding-for-bootstrap": {
+      "main": [
+        [
+          {
+            "node": "code-generate-default-sections",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "code-generate-default-sections": {
+      "main": [
+        [
+          {
+            "node": "airtable-insert-bootstrapped-sections",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "airtable-insert-bootstrapped-sections": {
+      "main": [
+        [
+          {
+            "node": "respond-sections-bootstrap",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": [
+    "modular",
+    "elevea",
+    "site_management"
+  ]
+}

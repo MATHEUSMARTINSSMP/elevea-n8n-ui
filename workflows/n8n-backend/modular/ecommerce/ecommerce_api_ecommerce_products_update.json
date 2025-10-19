@@ -1,0 +1,256 @@
+{
+  "name": "ecommerce_api_ecommerce_products_update",
+  "description": "Workflow modular para api/ecommerce/products/update - Módulo ECOMMERCE",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "api/ecommerce/products/update",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "webhook-ecommerce-product-update",
+      "name": "🛍️ Webhook - Ecommerce Update Product",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [
+        260,
+        11900
+      ],
+      "webhookId": "elevea-ecommerce-product-update"
+    },
+    {
+      "parameters": {
+        "jsCode": "// FUNÇÃO: ecommerce_update_product (do GAS linha 1396)\nconst out = [];\nfor (const { json } of items) {\n  const { site, siteSlug, productId, product } = json.body || {};\n  const normalizedSite = (site || siteSlug || '').toUpperCase();\n  \n  if (!normalizedSite) {\n    out.push({\n      json: {\n        success: false,\n        error: 'Site é obrigatório',\n        timestamp: new Date().toISOString()\n      }\n    });\n    continue;\n  }\n  \n  if (!productId) {\n    out.push({\n      json: {\n        success: false,\n        error: 'Product ID é obrigatório',\n        timestamp: new Date().toISOString()\n      }\n    });\n    continue;\n  }\n  \n  out.push({\n    json: {\n      siteSlug: normalizedSite,\n      productId: productId,\n      searchFormula: `AND({id}='${productId}', {site}='${normalizedSite}')`,\n      updates: {\n        name: product?.name,\n        description: product?.description,\n        price: product?.price,\n        category: product?.category,\n        images: product?.images ? JSON.stringify(product.images) : undefined,\n        stock: product?.stock !== undefined ? product.stock : undefined,\n        active: product?.active !== undefined ? product.active : undefined,\n        updatedAt: new Date().toISOString()\n      },\n      needsVipCheck: true,\n      timestamp: new Date().toISOString()\n    }\n  });\n}\nreturn out;"
+      },
+      "id": "code-ecommerce-product-update-prep",
+      "name": "📝 Code - Prepare Product Update",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        460,
+        11900
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "search",
+        "base": {
+          "__rl": true,
+          "value": "appELEVEA",
+          "mode": "list"
+        },
+        "table": {
+          "__rl": true,
+          "value": "clients",
+          "mode": "list"
+        },
+        "filterByFormula": "=AND({site_slug}='{{ $json.siteSlug }}', {plan}='vip')",
+        "options": {}
+      },
+      "id": "airtable-check-vip-product-update",
+      "name": "🗄️ Airtable - Check VIP",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [
+        660,
+        11900
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "search",
+        "base": {
+          "__rl": true,
+          "value": "appELEVEA",
+          "mode": "list"
+        },
+        "table": {
+          "__rl": true,
+          "value": "products",
+          "mode": "list"
+        },
+        "filterByFormula": "={{ $json.searchFormula }}",
+        "options": {}
+      },
+      "id": "airtable-search-product-update",
+      "name": "🗄️ Airtable - Search Product",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [
+        860,
+        11900
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "base": {
+          "__rl": true,
+          "value": "appELEVEA",
+          "mode": "list"
+        },
+        "table": {
+          "__rl": true,
+          "value": "products",
+          "mode": "list"
+        },
+        "id": "={{ $json.id }}",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldName": "name",
+              "fieldValue": "={{ $json.updates.name }}"
+            },
+            {
+              "fieldName": "description",
+              "fieldValue": "={{ $json.updates.description }}"
+            },
+            {
+              "fieldName": "price",
+              "fieldValue": "={{ $json.updates.price }}"
+            },
+            {
+              "fieldName": "category",
+              "fieldValue": "={{ $json.updates.category }}"
+            },
+            {
+              "fieldName": "images",
+              "fieldValue": "={{ $json.updates.images }}"
+            },
+            {
+              "fieldName": "stock",
+              "fieldValue": "={{ $json.updates.stock }}"
+            },
+            {
+              "fieldName": "active",
+              "fieldValue": "={{ $json.updates.active }}"
+            },
+            {
+              "fieldName": "updated_at",
+              "fieldValue": "={{ $json.updates.updatedAt }}"
+            }
+          ]
+        }
+      },
+      "id": "airtable-update-product",
+      "name": "🗄️ Airtable - Update Product",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [
+        1060,
+        11900
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { success: true, message: 'Produto atualizado com sucesso', data: $json.fields, timestamp: new Date().toISOString() } }}",
+        "options": {
+          "headers": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          }
+        }
+      },
+      "id": "respond-product-update",
+      "name": "📤 Respond - Product Update",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1260,
+        11900
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { success: true, message: '🛍️ Webhook - Ecommerce Update Product processado', timestamp: new Date().toISOString() } }}",
+        "options": {}
+      },
+      "id": "respond-webhook-ecommerce-product-update",
+      "name": "📤 Respond - Ecommerce Update Product",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        800,
+        100
+      ]
+    }
+  ],
+  "connections": {
+    "webhook-ecommerce-product-update": {
+      "main": [
+        [
+          {
+            "node": "code-ecommerce-product-update-prep",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "respond-webhook-ecommerce-product-update",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "code-ecommerce-product-update-prep": {
+      "main": [
+        [
+          {
+            "node": "airtable-check-vip-product-update",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "airtable-check-vip-product-update": {
+      "main": [
+        [
+          {
+            "node": "airtable-search-product-update",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "airtable-search-product-update": {
+      "main": [
+        [
+          {
+            "node": "airtable-update-product",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "airtable-update-product": {
+      "main": [
+        [
+          {
+            "node": "respond-product-update",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": [
+    "modular",
+    "elevea",
+    "ecommerce"
+  ]
+}

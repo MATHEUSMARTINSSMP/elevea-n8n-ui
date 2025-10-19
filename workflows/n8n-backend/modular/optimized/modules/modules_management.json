@@ -1,0 +1,406 @@
+{
+  "name": "modules_management",
+  "description": "Gerenciamento de módulos",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "GET",
+        "path": "api/modules/list",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "node_1_webhook-modules-list",
+      "name": "🧩 Webhook - Modules List",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [
+        260,
+        8100
+      ],
+      "webhookId": "elevea-modules-list"
+    },
+    {
+      "parameters": {
+        "jsCode": "// FUNÇÃO: list_modules / get_active_modules (do GAS)\nconst out = [];\nfor (const { json } of items) {\n  const query = json.query || {};\n  const { siteSlug } = query;\n  \n  if (!siteSlug) {\n    out.push({\n      json: {\n        success: false,\n        error: 'siteSlug é obrigatório',\n        timestamp: new Date().toISOString()\n      }\n    });\n    continue;\n  }\n  \n  out.push({ json: { siteSlug, timestamp: new Date().toISOString() } });\n}\nreturn out;"
+      },
+      "id": "node_2_code-modules-list",
+      "name": "🧩 Code - Modules List",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        460,
+        8100
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "search",
+        "base": {
+          "__rl": true,
+          "value": "appELEVEA",
+          "mode": "list"
+        },
+        "table": {
+          "__rl": true,
+          "value": "clients",
+          "mode": "list"
+        },
+        "filterByFormula": "=AND({siteSlug}='{{ $json.siteSlug }}')",
+        "options": {}
+      },
+      "id": "node_3_airtable-search-client-modules",
+      "name": "🗄️ Airtable - Search Client Modules",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [
+        660,
+        8100
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Retornar módulos disponíveis baseado no plano\nconst out = [];\nfor (const { json } of items) {\n  const client = json.fields || {};\n  const plan = client.plan || 'essential';\n  const isVip = plan === 'vip';\n  \n  const allModules = [\n    { id: 'basic-website', name: 'Site Básico', enabled: true, requiredPlan: 'essential' },\n    { id: 'google-my-business', name: 'Google Meu Negócio', enabled: true, requiredPlan: 'essential' },\n    { id: 'ai-copywriter', name: 'IA Copywriter', enabled: isVip, requiredPlan: 'vip' },\n    { id: 'auto-seo', name: 'SEO Automático', enabled: isVip, requiredPlan: 'vip' },\n    { id: 'lead-scoring', name: 'Lead Scoring', enabled: isVip, requiredPlan: 'vip' },\n    { id: 'whatsapp-chatbot', name: 'Chatbot WhatsApp', enabled: isVip, requiredPlan: 'vip' },\n    { id: 'appointment-scheduling', name: 'Agendamentos', enabled: isVip, requiredPlan: 'vip' },\n    { id: 'multi-language', name: 'Multi-idioma', enabled: isVip, requiredPlan: 'vip' },\n    { id: 'ecommerce', name: 'E-commerce', enabled: isVip, requiredPlan: 'vip' },\n    { id: 'premium-templates', name: 'Templates Premium', enabled: isVip, requiredPlan: 'vip' },\n    { id: 'white-label', name: 'White Label', enabled: isVip, requiredPlan: 'vip' },\n    { id: 'audit-logs', name: 'Logs de Auditoria', enabled: isVip, requiredPlan: 'vip' },\n    { id: 'feedback-system', name: 'Sistema de Feedback', enabled: isVip, requiredPlan: 'vip' }\n  ];\n  \n  out.push({\n    json: {\n      success: true,\n      siteSlug: client.siteSlug,\n      plan: plan,\n      modules: allModules,\n      enabledCount: allModules.filter(m => m.enabled).length,\n      timestamp: new Date().toISOString()\n    }\n  });\n}\nreturn out;"
+      },
+      "id": "node_4_code-format-modules-list",
+      "name": "🧩 Code - Format Modules List",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        860,
+        8100
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {
+          "headers": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          }
+        }
+      },
+      "id": "node_5_respond-modules-list",
+      "name": "📤 Respond - Modules List",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1060,
+        8100
+      ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "api/modules/toggle",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "node_6_webhook-modules-toggle",
+      "name": "🧩 Webhook - Modules Toggle",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [
+        260,
+        8300
+      ],
+      "webhookId": "elevea-modules-toggle"
+    },
+    {
+      "parameters": {
+        "jsCode": "// FUNÇÃO: toggle_module (do GAS)\nconst out = [];\nfor (const { json } of items) {\n  const { siteSlug, moduleId, enabled } = json.body || {};\n  \n  if (!siteSlug || !moduleId) {\n    out.push({\n      json: {\n        success: false,\n        error: 'siteSlug e moduleId são obrigatórios',\n        timestamp: new Date().toISOString()\n      }\n    });\n    continue;\n  }\n  \n  out.push({\n    json: {\n      siteSlug,\n      moduleId,\n      enabled: enabled !== false,\n      timestamp: new Date().toISOString()\n    }\n  });\n}\nreturn out;"
+      },
+      "id": "node_7_code-modules-toggle",
+      "name": "🧩 Code - Modules Toggle",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        460,
+        8300
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "search",
+        "base": {
+          "__rl": true,
+          "value": "appELEVEA",
+          "mode": "list"
+        },
+        "table": {
+          "__rl": true,
+          "value": "clients",
+          "mode": "list"
+        },
+        "filterByFormula": "=AND({siteSlug}='{{ $json.siteSlug }}')",
+        "options": {}
+      },
+      "id": "node_8_airtable-check-client-modules-toggle",
+      "name": "🗄️ Airtable - Check Client Modules Toggle",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [
+        660,
+        8300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Validar se cliente pode ativar módulo (VIP)\nconst out = [];\nfor (const { json } of items) {\n  const client = json.fields || {};\n  const plan = client.plan || 'essential';\n  const isVip = plan === 'vip';\n  \n  const vipModules = ['ai-copywriter', 'auto-seo', 'lead-scoring', 'whatsapp-chatbot', 'appointment-scheduling', 'multi-language', 'ecommerce', 'premium-templates', 'white-label', 'audit-logs', 'feedback-system'];\n  const isVipModule = vipModules.includes(json.moduleId);\n  \n  if (isVipModule && !isVip) {\n    out.push({\n      json: {\n        success: false,\n        error: 'Módulo VIP requer plano VIP',\n        moduleId: json.moduleId,\n        currentPlan: plan,\n        timestamp: new Date().toISOString()\n      }\n    });\n  } else {\n    out.push({\n      json: {\n        success: true,\n        siteSlug: client.siteSlug,\n        moduleId: json.moduleId,\n        enabled: json.enabled,\n        canToggle: true,\n        timestamp: new Date().toISOString()\n      }\n    });\n  }\n}\nreturn out;"
+      },
+      "id": "node_9_code-validate-module-toggle",
+      "name": "✅ Code - Validate Module Toggle",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        860,
+        8300
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "search",
+        "base": {
+          "__rl": true,
+          "value": "appELEVEA",
+          "mode": "list"
+        },
+        "table": {
+          "__rl": true,
+          "value": "site_settings",
+          "mode": "list"
+        },
+        "filterByFormula": "=AND({siteSlug}='{{ $json.siteSlug }}')",
+        "options": {}
+      },
+      "id": "node_10_airtable-search-settings-for-module",
+      "name": "🗄️ Airtable - Search Settings For Module",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [
+        1060,
+        8300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Atualizar módulos nas features\nconst out = [];\nfor (const { json } of items) {\n  const fields = json.fields || {};\n  const features = JSON.parse(fields.features || '{}');\n  features[json.moduleId] = json.enabled;\n  \n  out.push({\n    json: {\n      recordId: json.id,\n      siteSlug: json.siteSlug,\n      features: JSON.stringify(features),\n      timestamp: new Date().toISOString()\n    }\n  });\n}\nreturn out;"
+      },
+      "id": "node_11_code-update-module-in-settings",
+      "name": "📝 Code - Update Module In Settings",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1260,
+        8300
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "base": {
+          "__rl": true,
+          "value": "appELEVEA",
+          "mode": "list"
+        },
+        "table": {
+          "__rl": true,
+          "value": "site_settings",
+          "mode": "list"
+        },
+        "id": "={{ $json.recordId }}",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldName": "features",
+              "fieldValue": "={{ $json.features }}"
+            },
+            {
+              "fieldName": "updated_at",
+              "fieldValue": "={{ new Date().toISOString() }}"
+            }
+          ]
+        }
+      },
+      "id": "node_12_airtable-update-module-toggle",
+      "name": "🗄️ Airtable - Update Module Toggle",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [
+        1460,
+        8300
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { success: true, message: 'Módulo atualizado', siteSlug: $json.siteSlug, moduleId: $json.moduleId, enabled: $json.enabled, timestamp: new Date().toISOString() } }}",
+        "options": {
+          "headers": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          }
+        }
+      },
+      "id": "node_13_respond-modules-toggle",
+      "name": "📤 Respond - Modules Toggle",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1660,
+        8300
+      ]
+    }
+  ],
+  "connections": {
+    "node_1_webhook-modules-list": {
+      "main": [
+        [
+          {
+            "node": "node_2_code-modules-list",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "node_5_respond-modules-list",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "node_2_code-modules-list": {
+      "main": [
+        [
+          {
+            "node": "node_3_airtable-search-client-modules",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "node_3_airtable-search-client-modules": {
+      "main": [
+        [
+          {
+            "node": "node_4_code-format-modules-list",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "node_4_code-format-modules-list": {
+      "main": [
+        [
+          {
+            "node": "node_5_respond-modules-list",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "node_6_webhook-modules-toggle": {
+      "main": [
+        [
+          {
+            "node": "node_7_code-modules-toggle",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "node_13_respond-modules-toggle",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "node_7_code-modules-toggle": {
+      "main": [
+        [
+          {
+            "node": "node_8_airtable-check-client-modules-toggle",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "node_8_airtable-check-client-modules-toggle": {
+      "main": [
+        [
+          {
+            "node": "node_9_code-validate-module-toggle",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "node_9_code-validate-module-toggle": {
+      "main": [
+        [
+          {
+            "node": "node_10_airtable-search-settings-for-module",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "node_10_airtable-search-settings-for-module": {
+      "main": [
+        [
+          {
+            "node": "node_11_code-update-module-in-settings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "node_11_code-update-module-in-settings": {
+      "main": [
+        [
+          {
+            "node": "node_12_airtable-update-module-toggle",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "node_12_airtable-update-module-toggle": {
+      "main": [
+        [
+          {
+            "node": "node_13_respond-modules-toggle",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": [
+    "optimized",
+    "elevea",
+    "modular"
+  ]
+}

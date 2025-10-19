@@ -1,0 +1,192 @@
+{
+  "name": "site_management_api_sites_list",
+  "description": "Workflow modular para api/sites/list - Módulo SITE_MANAGEMENT",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "GET",
+        "path": "api/sites/list",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "webhook-sites-list",
+      "name": "🌐 Webhook - Sites List",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [
+        260,
+        9700
+      ],
+      "webhookId": "elevea-sites-list"
+    },
+    {
+      "parameters": {
+        "jsCode": "// FUNÇÃO: sites (do GAS)\nconst out = [];\nfor (const { json } of items) {\n  const query = json.query || {};\n  const { adminEmail } = query;\n  \n  out.push({\n    json: {\n      adminEmail: adminEmail || 'all',\n      timestamp: new Date().toISOString()\n    }\n  });\n}\nreturn out;"
+      },
+      "id": "code-sites-list",
+      "name": "🌐 Code - Sites List",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        460,
+        9700
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "list",
+        "base": {
+          "__rl": true,
+          "value": "appELEVEA",
+          "mode": "list"
+        },
+        "table": {
+          "__rl": true,
+          "value": "site_structures",
+          "mode": "list"
+        },
+        "options": {}
+      },
+      "id": "airtable-list-all-sites",
+      "name": "🗄️ Airtable - List All Sites",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [
+        660,
+        9700
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "list",
+        "base": {
+          "__rl": true,
+          "value": "appELEVEA",
+          "mode": "list"
+        },
+        "table": {
+          "__rl": true,
+          "value": "clients",
+          "mode": "list"
+        },
+        "options": {}
+      },
+      "id": "airtable-list-clients-for-sites",
+      "name": "🗄️ Airtable - List Clients For Sites",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [
+        860,
+        9700
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Mesclar sites com clientes\nconst out = [];\nconst sites = items.filter(i => i.json.table === 'site_structures').map(i => ({ id: i.json.id, ...i.json.fields }));\nconst clients = items.filter(i => i.json.table === 'clients').map(i => ({ id: i.json.id, ...i.json.fields }));\n\nconst clientsMap = {};\nclients.forEach(c => {\n  clientsMap[c.siteSlug] = c;\n});\n\nconst sitesList = sites.map(site => {\n  const client = clientsMap[site.site_slug] || {};\n  return {\n    siteId: site.id,\n    siteSlug: site.site_slug,\n    theme: site.theme,\n    layout: site.layout,\n    templateApplied: site.template_applied,\n    clientInfo: {\n      name: client.name,\n      email: client.email,\n      plan: client.plan,\n      status: client.status\n    },\n    createdAt: site.created_at,\n    updatedAt: site.updated_at\n  };\n});\n\nout.push({\n  json: {\n    success: true,\n    sites: sitesList,\n    count: sitesList.length,\n    timestamp: new Date().toISOString()\n  }\n});\nreturn out;"
+      },
+      "id": "code-format-sites-list",
+      "name": "🌐 Code - Format Sites List",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1060,
+        9700
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {
+          "headers": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          }
+        }
+      },
+      "id": "respond-sites-list",
+      "name": "📤 Respond - Sites List",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1260,
+        9700
+      ]
+    }
+  ],
+  "connections": {
+    "webhook-sites-list": {
+      "main": [
+        [
+          {
+            "node": "code-sites-list",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "respond-sites-list",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "code-sites-list": {
+      "main": [
+        [
+          {
+            "node": "airtable-list-all-sites",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "airtable-list-all-sites": {
+      "main": [
+        [
+          {
+            "node": "airtable-list-clients-for-sites",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "airtable-list-clients-for-sites": {
+      "main": [
+        [
+          {
+            "node": "code-format-sites-list",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "code-format-sites-list": {
+      "main": [
+        [
+          {
+            "node": "respond-sites-list",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": [
+    "modular",
+    "elevea",
+    "site_management"
+  ]
+}

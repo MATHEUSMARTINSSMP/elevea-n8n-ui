@@ -1,0 +1,194 @@
+{
+  "name": "billing_api_client_plan",
+  "description": "Workflow modular para api/client/plan - Módulo BILLING",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "api/client/plan",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "webhook-client-plan",
+      "name": "📊 Webhook - Client Plan",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [
+        260,
+        1500
+      ],
+      "webhookId": "elevea-client-plan"
+    },
+    {
+      "parameters": {
+        "jsCode": "// FUNÇÃO: client_plan / get_client_plan_v2 (do GAS)\nconst out = [];\nfor (const { json } of items) {\n  const { siteSlug, email } = json.body || {};\n  \n  if (!siteSlug && !email) {\n    out.push({\n      json: {\n        success: false,\n        error: 'siteSlug ou email é obrigatório',\n        timestamp: new Date().toISOString()\n      }\n    });\n    continue;\n  }\n  \n  out.push({\n    json: {\n      success: true,\n      siteSlug: siteSlug,\n      email: email,\n      needsClientData: true,\n      timestamp: new Date().toISOString()\n    }\n  });\n}\nreturn out;"
+      },
+      "id": "code-client-plan",
+      "name": "📊 Code - Client Plan",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        460,
+        1500
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "search",
+        "base": {
+          "__rl": true,
+          "value": "appELEVEA",
+          "mode": "list"
+        },
+        "table": {
+          "__rl": true,
+          "value": "clients",
+          "mode": "list"
+        },
+        "filterByFormula": "=OR({siteSlug}='{{ $json.siteSlug }}', {email}='{{ $json.email }}')",
+        "options": {}
+      },
+      "id": "airtable-search-client-plan",
+      "name": "🗄️ Airtable - Search Client Plan",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [
+        660,
+        1500
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "search",
+        "base": {
+          "__rl": true,
+          "value": "appELEVEA",
+          "mode": "list"
+        },
+        "table": {
+          "__rl": true,
+          "value": "billing",
+          "mode": "list"
+        },
+        "filterByFormula": "=AND({siteSlug}='{{ $json.fields.siteSlug }}')",
+        "options": {}
+      },
+      "id": "airtable-search-billing",
+      "name": "🗄️ Airtable - Search Billing",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [
+        860,
+        1500
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Processar dados completos do cliente com billing\nconst out = [];\nfor (const { json } of items) {\n  const client = json.fields || {};\n  const plan = client.plan || 'essential';\n  const isVip = plan === 'vip';\n  \n  const coreFeatures = ['basic-website', 'google-my-business'];\n  const vipFeatures = [\n    'ai-copywriter', 'auto-seo', 'lead-scoring', 'whatsapp-chatbot',\n    'appointment-scheduling', 'multi-language', 'ecommerce',\n    'premium-templates', 'white-label', 'audit-logs', 'feedback-system'\n  ];\n  \n  out.push({\n    json: {\n      success: true,\n      data: {\n        siteSlug: client.siteSlug,\n        email: client.email,\n        name: client.name,\n        plan: plan,\n        status: client.status || 'active',\n        features: isVip ? [...coreFeatures, ...vipFeatures] : coreFeatures,\n        isVip: isVip,\n        billing: {\n          provider: 'mercadopago',\n          preapproval_id: client.preapproval_id || '',\n          last_payment: client.last_payment || null,\n          amount: isVip ? 97 : 0,\n          payment_method: client.payment_method || null\n        },\n        limits: {\n          websites: isVip ? -1 : 1,\n          whatsapp_messages: isVip ? -1 : 100,\n          ai_requests: isVip ? -1 : 10,\n          storage: isVip ? 'unlimited' : '1GB'\n        },\n        createdAt: client.created_at,\n        updatedAt: client.updated_at || new Date().toISOString()\n      },\n      timestamp: new Date().toISOString()\n    }\n  });\n}\nreturn out;"
+      },
+      "id": "code-process-client-plan",
+      "name": "📊 Code - Process Client Plan",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1060,
+        1500
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {
+          "headers": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          }
+        }
+      },
+      "id": "respond-client-plan",
+      "name": "📤 Respond - Client Plan",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1260,
+        1500
+      ]
+    }
+  ],
+  "connections": {
+    "webhook-client-plan": {
+      "main": [
+        [
+          {
+            "node": "code-client-plan",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "respond-client-plan",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "code-client-plan": {
+      "main": [
+        [
+          {
+            "node": "airtable-search-client-plan",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "airtable-search-client-plan": {
+      "main": [
+        [
+          {
+            "node": "airtable-search-billing",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "airtable-search-billing": {
+      "main": [
+        [
+          {
+            "node": "code-process-client-plan",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "code-process-client-plan": {
+      "main": [
+        [
+          {
+            "node": "respond-client-plan",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": [
+    "modular",
+    "elevea",
+    "billing"
+  ]
+}

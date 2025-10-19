@@ -1,0 +1,275 @@
+{
+  "name": "billing_api_admin_toggle",
+  "description": "Workflow modular para api/admin/toggle - Módulo BILLING",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "api/admin/toggle",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "webhook-admin-toggle",
+      "name": "🔧 Webhook - Admin Toggle",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [
+        260,
+        1900
+      ],
+      "webhookId": "elevea-admin-toggle"
+    },
+    {
+      "parameters": {
+        "jsCode": "// FUNÇÃO: admin_toggle / manual_block (do GAS)\nconst out = [];\nfor (const { json } of items) {\n  const { siteSlug, action, reason } = json.body || {};\n  \n  if (!siteSlug || !action) {\n    out.push({\n      json: {\n        success: false,\n        error: 'siteSlug e action são obrigatórios',\n        timestamp: new Date().toISOString()\n      }\n    });\n    continue;\n  }\n  \n  const newStatus = action === 'block' ? 'blocked' : 'active';\n  const isBlocking = action === 'block';\n  \n  out.push({\n    json: {\n      siteSlug,\n      newStatus,\n      isBlocking,\n      reason: reason || (isBlocking ? 'Bloqueio manual via admin' : 'Desbloqueio manual via admin'),\n      timestamp: new Date().toISOString()\n    }\n  });\n}\nreturn out;"
+      },
+      "id": "code-admin-toggle",
+      "name": "🔧 Code - Admin Toggle",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        460,
+        1900
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "search",
+        "base": {
+          "__rl": true,
+          "value": "appELEVEA",
+          "mode": "list"
+        },
+        "table": {
+          "__rl": true,
+          "value": "clients",
+          "mode": "list"
+        },
+        "filterByFormula": "=AND({siteSlug}='{{ $json.siteSlug }}')",
+        "options": {}
+      },
+      "id": "airtable-search-client-toggle",
+      "name": "🗄️ Airtable - Search Client Toggle",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [
+        660,
+        1900
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "base": {
+          "__rl": true,
+          "value": "appELEVEA",
+          "mode": "list"
+        },
+        "table": {
+          "__rl": true,
+          "value": "clients",
+          "mode": "list"
+        },
+        "id": "={{ $json.id }}",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldName": "status",
+              "fieldValue": "={{ $json.newStatus }}"
+            },
+            {
+              "fieldName": "manual_block",
+              "fieldValue": "={{ $json.isBlocking }}"
+            },
+            {
+              "fieldName": "block_reason",
+              "fieldValue": "={{ $json.reason }}"
+            },
+            {
+              "fieldName": "updated_at",
+              "fieldValue": "={{ new Date().toISOString() }}"
+            }
+          ]
+        }
+      },
+      "id": "airtable-update-client-toggle",
+      "name": "🗄️ Airtable - Update Client Toggle",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [
+        860,
+        1900
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Log audit da ação admin\nconst out = [];\nfor (const { json } of items) {\n  out.push({\n    json: {\n      siteSlug: json.siteSlug,\n      action: json.isBlocking ? 'client_blocked' : 'client_unblocked',\n      user_email: 'admin@elevea.com',\n      user_role: 'admin',\n      details: JSON.stringify({ reason: json.reason, newStatus: json.newStatus }),\n      severity: 'warning',\n      timestamp: new Date().toISOString()\n    }\n  });\n}\nreturn out;"
+      },
+      "id": "code-audit-admin-toggle",
+      "name": "📝 Code - Audit Admin Toggle",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1060,
+        1900
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "base": {
+          "__rl": true,
+          "value": "appELEVEA",
+          "mode": "list"
+        },
+        "table": {
+          "__rl": true,
+          "value": "audit_logs",
+          "mode": "list"
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldName": "site_slug",
+              "fieldValue": "={{ $json.siteSlug }}"
+            },
+            {
+              "fieldName": "action",
+              "fieldValue": "={{ $json.action }}"
+            },
+            {
+              "fieldName": "user_email",
+              "fieldValue": "={{ $json.user_email }}"
+            },
+            {
+              "fieldName": "user_role",
+              "fieldValue": "={{ $json.user_role }}"
+            },
+            {
+              "fieldName": "details",
+              "fieldValue": "={{ $json.details }}"
+            },
+            {
+              "fieldName": "severity",
+              "fieldValue": "={{ $json.severity }}"
+            }
+          ]
+        }
+      },
+      "id": "airtable-insert-audit-log",
+      "name": "🗄️ Airtable - Insert Audit Log",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [
+        1260,
+        1900
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { success: true, message: 'Status do cliente atualizado', siteSlug: $json.siteSlug, newStatus: $json.newStatus, timestamp: new Date().toISOString() } }}",
+        "options": {
+          "headers": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          }
+        }
+      },
+      "id": "respond-admin-toggle",
+      "name": "📤 Respond - Admin Toggle",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1460,
+        1900
+      ]
+    }
+  ],
+  "connections": {
+    "webhook-admin-toggle": {
+      "main": [
+        [
+          {
+            "node": "code-admin-toggle",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "respond-admin-toggle",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "code-admin-toggle": {
+      "main": [
+        [
+          {
+            "node": "airtable-search-client-toggle",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "airtable-search-client-toggle": {
+      "main": [
+        [
+          {
+            "node": "airtable-update-client-toggle",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "airtable-update-client-toggle": {
+      "main": [
+        [
+          {
+            "node": "code-audit-admin-toggle",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "code-audit-admin-toggle": {
+      "main": [
+        [
+          {
+            "node": "airtable-insert-audit-log",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "airtable-insert-audit-log": {
+      "main": [
+        [
+          {
+            "node": "respond-admin-toggle",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": [
+    "modular",
+    "elevea",
+    "billing"
+  ]
+}

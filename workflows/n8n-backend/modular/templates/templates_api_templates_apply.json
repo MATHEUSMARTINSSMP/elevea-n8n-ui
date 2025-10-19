@@ -1,0 +1,345 @@
+{
+  "name": "templates_api_templates_apply",
+  "description": "Workflow modular para api/templates/apply - Módulo TEMPLATES",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "api/templates/apply",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "webhook-template-apply",
+      "name": "🎨 Webhook - Template Apply",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [
+        260,
+        8900
+      ],
+      "webhookId": "elevea-template-apply"
+    },
+    {
+      "parameters": {
+        "jsCode": "// FUNÇÃO: template_purchases (do GAS)\nconst out = [];\nfor (const { json } of items) {\n  const { siteSlug, templateId } = json.body || {};\n  \n  if (!siteSlug || !templateId) {\n    out.push({\n      json: {\n        success: false,\n        error: 'siteSlug e templateId são obrigatórios',\n        timestamp: new Date().toISOString()\n      }\n    });\n    continue;\n  }\n  \n  out.push({ json: { siteSlug, templateId, timestamp: new Date().toISOString() } });\n}\nreturn out;"
+      },
+      "id": "code-template-apply",
+      "name": "🎨 Code - Template Apply",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        460,
+        8900
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "search",
+        "base": {
+          "__rl": true,
+          "value": "appELEVEA",
+          "mode": "list"
+        },
+        "table": {
+          "__rl": true,
+          "value": "site_templates",
+          "mode": "list"
+        },
+        "filterByFormula": "=AND({id}='{{ $json.templateId }}')",
+        "options": {}
+      },
+      "id": "airtable-search-template",
+      "name": "🗄️ Airtable - Search Template",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [
+        660,
+        8900
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "search",
+        "base": {
+          "__rl": true,
+          "value": "appELEVEA",
+          "mode": "list"
+        },
+        "table": {
+          "__rl": true,
+          "value": "clients",
+          "mode": "list"
+        },
+        "filterByFormula": "=AND({siteSlug}='{{ $json.siteSlug }}')",
+        "options": {}
+      },
+      "id": "airtable-check-client-template",
+      "name": "🗄️ Airtable - Check Client Template",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [
+        860,
+        8900
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Validar se cliente pode aplicar template\nconst out = [];\nfor (const { json } of items) {\n  const client = json.fields || {};\n  const template = json.template?.fields || {};\n  const plan = client.plan || 'essential';\n  const isVip = plan === 'vip';\n  const requiredPlan = template.required_plan || 'essential';\n  \n  if (requiredPlan === 'vip' && !isVip) {\n    out.push({\n      json: {\n        success: false,\n        error: 'Template VIP requer plano VIP',\n        requiredPlan: requiredPlan,\n        currentPlan: plan,\n        timestamp: new Date().toISOString()\n      }\n    });\n  } else {\n    out.push({\n      json: {\n        success: true,\n        siteSlug: client.siteSlug,\n        templateId: json.templateId,\n        templateData: template,\n        canApply: true,\n        timestamp: new Date().toISOString()\n      }\n    });\n  }\n}\nreturn out;"
+      },
+      "id": "code-validate-template-apply",
+      "name": "✅ Code - Validate Template Apply",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1060,
+        8900
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Aplicar template ao site (copiar estrutura)\nconst out = [];\nfor (const { json } of items) {\n  const template = json.templateData || {};\n  \n  out.push({\n    json: {\n      siteSlug: json.siteSlug,\n      sections: template.sections || '[]',\n      pages: template.pages || '[]',\n      theme: template.theme || 'default',\n      layout: template.layout || 'standard',\n      navigation: template.navigation || '{}',\n      footer: template.footer || '{}',\n      templateApplied: json.templateId,\n      timestamp: new Date().toISOString()\n    }\n  });\n}\nreturn out;"
+      },
+      "id": "code-apply-template-to-site",
+      "name": "🎨 Code - Apply Template To Site",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1260,
+        8900
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "search",
+        "base": {
+          "__rl": true,
+          "value": "appELEVEA",
+          "mode": "list"
+        },
+        "table": {
+          "__rl": true,
+          "value": "site_structures",
+          "mode": "list"
+        },
+        "filterByFormula": "=AND({siteSlug}='{{ $json.siteSlug }}')",
+        "options": {}
+      },
+      "id": "airtable-search-site-for-template",
+      "name": "🗄️ Airtable - Search Site For Template",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [
+        1460,
+        8900
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "base": {
+          "__rl": true,
+          "value": "appELEVEA",
+          "mode": "list"
+        },
+        "table": {
+          "__rl": true,
+          "value": "site_structures",
+          "mode": "list"
+        },
+        "id": "={{ $json.id }}",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldName": "sections",
+              "fieldValue": "={{ $json.sections }}"
+            },
+            {
+              "fieldName": "pages",
+              "fieldValue": "={{ $json.pages }}"
+            },
+            {
+              "fieldName": "theme",
+              "fieldValue": "={{ $json.theme }}"
+            },
+            {
+              "fieldName": "layout",
+              "fieldValue": "={{ $json.layout }}"
+            },
+            {
+              "fieldName": "template_applied",
+              "fieldValue": "={{ $json.templateApplied }}"
+            },
+            {
+              "fieldName": "updated_at",
+              "fieldValue": "={{ new Date().toISOString() }}"
+            }
+          ]
+        }
+      },
+      "id": "airtable-apply-template",
+      "name": "🗄️ Airtable - Apply Template",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [
+        1660,
+        8900
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://api.netlify.com/build_hooks/{{ $env.NETLIFY_BUILD_HOOK }}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ {\n  \"trigger_title\": \"Template aplicado: \" + $json.siteSlug,\n  \"trigger_branch\": \"main\"\n} }}",
+        "options": {}
+      },
+      "id": "http-netlify-rebuild-template",
+      "name": "🏗️ HTTP - Netlify Rebuild Template",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1860,
+        8900
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { success: true, message: 'Template aplicado com sucesso', siteSlug: $json.siteSlug, templateId: $json.templateApplied, timestamp: new Date().toISOString() } }}",
+        "options": {
+          "headers": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          }
+        }
+      },
+      "id": "respond-template-apply",
+      "name": "📤 Respond - Template Apply",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        2060,
+        8900
+      ]
+    }
+  ],
+  "connections": {
+    "webhook-template-apply": {
+      "main": [
+        [
+          {
+            "node": "code-template-apply",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "respond-template-apply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "code-template-apply": {
+      "main": [
+        [
+          {
+            "node": "airtable-search-template",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "airtable-search-template": {
+      "main": [
+        [
+          {
+            "node": "airtable-check-client-template",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "airtable-check-client-template": {
+      "main": [
+        [
+          {
+            "node": "code-validate-template-apply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "code-validate-template-apply": {
+      "main": [
+        [
+          {
+            "node": "code-apply-template-to-site",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "code-apply-template-to-site": {
+      "main": [
+        [
+          {
+            "node": "airtable-search-site-for-template",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "airtable-search-site-for-template": {
+      "main": [
+        [
+          {
+            "node": "airtable-apply-template",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "airtable-apply-template": {
+      "main": [
+        [
+          {
+            "node": "http-netlify-rebuild-template",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "http-netlify-rebuild-template": {
+      "main": [
+        [
+          {
+            "node": "respond-template-apply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": [
+    "modular",
+    "elevea",
+    "templates"
+  ]
+}

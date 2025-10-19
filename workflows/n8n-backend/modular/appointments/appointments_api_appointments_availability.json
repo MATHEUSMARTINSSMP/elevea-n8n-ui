@@ -1,0 +1,211 @@
+{
+  "name": "appointments_api_appointments_availability",
+  "description": "Workflow modular para api/appointments/availability - Módulo APPOINTMENTS",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "api/appointments/availability",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "webhook-appointment-availability",
+      "name": "📅 Webhook - Appointment Availability",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [
+        260,
+        13100
+      ],
+      "webhookId": "elevea-appointment-availability"
+    },
+    {
+      "parameters": {
+        "jsCode": "// FUNÇÃO: appointment_get_availability (do GAS linha 6989)\nconst out = [];\nfor (const { json } of items) {\n  const { site, siteSlug, date, duration = 60 } = json.body || {};\n  const normalizedSite = (site || siteSlug || '').toUpperCase();\n  \n  if (!normalizedSite || !date) {\n    out.push({\n      json: {\n        success: false,\n        error: 'Site e data são obrigatórios',\n        timestamp: new Date().toISOString()\n      }\n    });\n    continue;\n  }\n  \n  out.push({\n    json: {\n      siteSlug: normalizedSite,\n      date: date,\n      duration: parseInt(duration),\n      searchFormula: `AND({site}='${normalizedSite}', {datetime}>='${date}T00:00:00', {datetime}<='${date}T23:59:59', {status}<>'cancelled')`,\n      timestamp: new Date().toISOString()\n    }\n  });\n}\nreturn out;"
+      },
+      "id": "code-availability-prep",
+      "name": "📝 Code - Prepare Availability Check",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        460,
+        13100
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "list",
+        "base": {
+          "__rl": true,
+          "value": "appELEVEA",
+          "mode": "list"
+        },
+        "table": {
+          "__rl": true,
+          "value": "appointments",
+          "mode": "list"
+        },
+        "returnAll": true,
+        "options": {
+          "filterByFormula": "={{ $json.searchFormula }}"
+        }
+      },
+      "id": "airtable-list-day-appointments",
+      "name": "🗄️ Airtable - List Day Appointments",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [
+        660,
+        13100
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "search",
+        "base": {
+          "__rl": true,
+          "value": "appELEVEA",
+          "mode": "list"
+        },
+        "table": {
+          "__rl": true,
+          "value": "appointment_settings",
+          "mode": "list"
+        },
+        "filterByFormula": "={site}='{{ $json.siteSlug }}'",
+        "options": {}
+      },
+      "id": "airtable-get-appointment-settings",
+      "name": "🗄️ Airtable - Get Settings",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [
+        860,
+        13100
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Calcular slots disponíveis (baseado no GAS linha 6989 + helper checkAppointmentAvailability_ linha 223)\nconst appointments = items[0]?.json?.appointments || [];\nconst settings = items[1]?.json?.fields || {};\nconst inputData = $node['Code - Prepare Availability Check'].json;\n\n// Working hours\nlet workingHours = { start: '09:00', end: '18:00' };\ntry {\n  workingHours = typeof settings.workingHours === 'string' \n    ? JSON.parse(settings.workingHours) \n    : (settings.workingHours || workingHours);\n} catch (e) {}\n\nconst duration = inputData.duration || 60;\nconst startHour = parseInt(workingHours.start.split(':')[0]);\nconst endHour = parseInt(workingHours.end.split(':')[0]);\n\nconst availableSlots = [];\nconst busySlots = [];\n\nfor (let hour = startHour; hour < endHour; hour++) {\n  const timeSlot = `${hour.toString().padStart(2, '0')}:00`;\n  const slotDateTime = `${inputData.date}T${timeSlot}:00`;\n  \n  // Verificar se há conflito (checkAppointmentAvailability logic)\n  const requestedStart = new Date(slotDateTime);\n  const requestedEnd = new Date(requestedStart.getTime() + (duration * 60000));\n  \n  let hasConflict = false;\n  for (const apt of appointments) {\n    if (apt.status === 'cancelled') continue;\n    \n    const existingStart = new Date(apt.datetime);\n    const existingEnd = new Date(existingStart.getTime() + ((apt.duration || 60) * 60000));\n    \n    if (requestedStart < existingEnd && requestedEnd > existingStart) {\n      hasConflict = true;\n      busySlots.push(timeSlot);\n      break;\n    }\n  }\n  \n  if (!hasConflict) {\n    availableSlots.push(timeSlot);\n  }\n}\n\nconst out = [{\n  json: {\n    success: true,\n    data: {\n      date: inputData.date,\n      availableSlots: availableSlots,\n      busySlots: busySlots,\n      workingHours: workingHours,\n      duration: duration\n    },\n    timestamp: new Date().toISOString()\n  }\n}];\nreturn out;"
+      },
+      "id": "code-calc-availability",
+      "name": "📊 Code - Calculate Availability",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1060,
+        13100
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {
+          "headers": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          }
+        }
+      },
+      "id": "respond-appointment-availability",
+      "name": "📤 Respond - Availability",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1260,
+        13100
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { success: true, message: '📅 Webhook - Appointment Availability processado', timestamp: new Date().toISOString() } }}",
+        "options": {}
+      },
+      "id": "respond-webhook-appointment-availability",
+      "name": "📤 Respond - Appointment Availability",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        800,
+        100
+      ]
+    }
+  ],
+  "connections": {
+    "webhook-appointment-availability": {
+      "main": [
+        [
+          {
+            "node": "code-availability-prep",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "respond-webhook-appointment-availability",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "code-availability-prep": {
+      "main": [
+        [
+          {
+            "node": "airtable-list-day-appointments",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "airtable-list-day-appointments": {
+      "main": [
+        [
+          {
+            "node": "airtable-get-appointment-settings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "airtable-get-appointment-settings": {
+      "main": [
+        [
+          {
+            "node": "code-calc-availability",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "code-calc-availability": {
+      "main": [
+        [
+          {
+            "node": "respond-appointment-availability",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": [
+    "modular",
+    "elevea",
+    "appointments"
+  ]
+}

@@ -1,0 +1,165 @@
+{
+  "name": "admin_api_audit_logs",
+  "description": "Workflow modular para api/audit/logs - Módulo ADMIN",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "GET",
+        "path": "api/audit/logs",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "webhook-audit-logs",
+      "name": "📝 Webhook - Audit Logs",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [
+        260,
+        9500
+      ],
+      "webhookId": "elevea-audit-logs"
+    },
+    {
+      "parameters": {
+        "jsCode": "// FUNÇÃO: get_audit_logs (do GAS)\nconst out = [];\nfor (const { json } of items) {\n  const query = json.query || {};\n  const { siteSlug, severity, limit } = query;\n  \n  out.push({\n    json: {\n      siteSlug: siteSlug || 'all',\n      severity: severity || 'all',\n      limit: parseInt(limit) || 100,\n      timestamp: new Date().toISOString()\n    }\n  });\n}\nreturn out;"
+      },
+      "id": "code-audit-logs",
+      "name": "📝 Code - Audit Logs",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        460,
+        9500
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "list",
+        "base": {
+          "__rl": true,
+          "value": "appELEVEA",
+          "mode": "list"
+        },
+        "table": {
+          "__rl": true,
+          "value": "audit_logs",
+          "mode": "list"
+        },
+        "limit": "={{ $json.limit }}",
+        "options": {
+          "sort": [
+            {
+              "field": "created_at",
+              "direction": "desc"
+            }
+          ]
+        }
+      },
+      "id": "airtable-list-audit-logs",
+      "name": "🗄️ Airtable - List Audit Logs",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [
+        660,
+        9500
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Formatar logs de auditoria\nconst out = [];\nconst logs = [];\n\nfor (const { json } of items) {\n  const fields = json.fields || {};\n  logs.push({\n    logId: json.id,\n    siteSlug: fields.site_slug,\n    action: fields.action,\n    userEmail: fields.user_email,\n    userRole: fields.user_role,\n    details: fields.details,\n    severity: fields.severity,\n    createdAt: fields.created_at\n  });\n}\n\nconst severityCounts = {};\nlogs.forEach(l => {\n  severityCounts[l.severity] = (severityCounts[l.severity] || 0) + 1;\n});\n\nout.push({\n  json: {\n    success: true,\n    logs: logs,\n    count: logs.length,\n    severityBreakdown: severityCounts,\n    timestamp: new Date().toISOString()\n  }\n});\nreturn out;"
+      },
+      "id": "code-format-audit-logs",
+      "name": "📝 Code - Format Audit Logs",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        860,
+        9500
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {
+          "headers": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          }
+        }
+      },
+      "id": "respond-audit-logs",
+      "name": "📤 Respond - Audit Logs",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1060,
+        9500
+      ]
+    }
+  ],
+  "connections": {
+    "webhook-audit-logs": {
+      "main": [
+        [
+          {
+            "node": "code-audit-logs",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "respond-audit-logs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "code-audit-logs": {
+      "main": [
+        [
+          {
+            "node": "airtable-list-audit-logs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "airtable-list-audit-logs": {
+      "main": [
+        [
+          {
+            "node": "code-format-audit-logs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "code-format-audit-logs": {
+      "main": [
+        [
+          {
+            "node": "respond-audit-logs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": [
+    "modular",
+    "elevea",
+    "admin"
+  ]
+}

@@ -1,0 +1,124 @@
+{
+  "name": "helpers_api_helpers_generate_id",
+  "description": "Workflow modular para api/helpers/generate-id - Módulo HELPERS",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "api/helpers/generate-id",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "webhook-generate-id",
+      "name": "🔧 Webhook - Generate ID",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [
+        260,
+        11300
+      ],
+      "webhookId": "elevea-generate-id"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {
+          "headers": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          }
+        }
+      },
+      "id": "respond-generate-id",
+      "name": "📤 Respond - Generate ID",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        660,
+        11300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Processar dados do webhook\nreturn [{ json: $input.first().json }];"
+      },
+      "id": "process-webhook-generate-id",
+      "name": "🔧 Process - 🔧 Webhook - Generate ID",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        400,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { success: true, message: '🔧 Process - 🔧 Webhook - Generate ID processado', timestamp: new Date().toISOString() } }}",
+        "options": {}
+      },
+      "id": "respond-process-webhook-generate-id",
+      "name": "📤 Respond - 🔧 Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        800,
+        100
+      ]
+    }
+  ],
+  "connections": {
+    "webhook-generate-id": {
+      "main": [
+        [
+          {
+            "node": "respond-generate-id",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "process-webhook-generate-id",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "respond-generate-id": {
+      "main": [
+        [
+          {
+            "node": "respond-generate-id",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "process-webhook-generate-id": {
+      "main": [
+        [
+          {
+            "node": "respond-process-webhook-generate-id",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": [
+    "modular",
+    "elevea",
+    "helpers"
+  ]
+}

@@ -1,0 +1,158 @@
+{
+  "name": "site_management_api_site_structure",
+  "description": "Workflow modular para api/site/structure - Módulo SITE_MANAGEMENT",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "GET",
+        "path": "api/site/structure",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "webhook-site-structure",
+      "name": "🏗️ Webhook - Site Structure",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [
+        260,
+        6500
+      ],
+      "webhookId": "elevea-site-structure"
+    },
+    {
+      "parameters": {
+        "jsCode": "// FUNÇÃO: get_site_structure (do GAS)\nconst out = [];\nfor (const { json } of items) {\n  const query = json.query || {};\n  const { siteSlug } = query;\n  \n  if (!siteSlug) {\n    out.push({\n      json: {\n        success: false,\n        error: 'siteSlug é obrigatório',\n        timestamp: new Date().toISOString()\n      }\n    });\n    continue;\n  }\n  \n  out.push({ json: { siteSlug, timestamp: new Date().toISOString() } });\n}\nreturn out;"
+      },
+      "id": "code-site-structure",
+      "name": "🏗️ Code - Site Structure",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        460,
+        6500
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "search",
+        "base": {
+          "__rl": true,
+          "value": "appELEVEA",
+          "mode": "list"
+        },
+        "table": {
+          "__rl": true,
+          "value": "site_structures",
+          "mode": "list"
+        },
+        "filterByFormula": "=AND({siteSlug}='{{ $json.siteSlug }}')",
+        "options": {}
+      },
+      "id": "airtable-search-site-structure",
+      "name": "🗄️ Airtable - Search Site Structure",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [
+        660,
+        6500
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Formatar estrutura do site\nconst out = [];\nfor (const { json } of items) {\n  const fields = json.fields || {};\n  const sections = JSON.parse(fields.sections || '[]');\n  const pages = JSON.parse(fields.pages || '[]');\n  \n  out.push({\n    json: {\n      success: true,\n      siteSlug: fields.site_slug,\n      structure: {\n        sections: sections,\n        pages: pages,\n        theme: fields.theme || 'default',\n        layout: fields.layout || 'standard',\n        navigation: JSON.parse(fields.navigation || '{}'),\n        footer: JSON.parse(fields.footer || '{}')\n      },\n      timestamp: new Date().toISOString()\n    }\n  });\n}\nreturn out;"
+      },
+      "id": "code-format-site-structure",
+      "name": "🏗️ Code - Format Site Structure",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        860,
+        6500
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {
+          "headers": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          }
+        }
+      },
+      "id": "respond-site-structure",
+      "name": "📤 Respond - Site Structure",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1060,
+        6500
+      ]
+    }
+  ],
+  "connections": {
+    "webhook-site-structure": {
+      "main": [
+        [
+          {
+            "node": "code-site-structure",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "respond-site-structure",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "code-site-structure": {
+      "main": [
+        [
+          {
+            "node": "airtable-search-site-structure",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "airtable-search-site-structure": {
+      "main": [
+        [
+          {
+            "node": "code-format-site-structure",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "code-format-site-structure": {
+      "main": [
+        [
+          {
+            "node": "respond-site-structure",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": [
+    "modular",
+    "elevea",
+    "site_management"
+  ]
+}

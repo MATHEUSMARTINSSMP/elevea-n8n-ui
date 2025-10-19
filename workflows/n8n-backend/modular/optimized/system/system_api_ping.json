@@ -1,0 +1,77 @@
+{
+  "name": "system_api_ping",
+  "description": "Workflow modular para api/ping - Módulo SYSTEM",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "GET",
+        "path": "api/ping",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "webhook-ping",
+      "name": "🏓 Webhook - Ping",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [
+        260,
+        100
+      ],
+      "webhookId": "elevea-ping"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { success: true, message: 'ELEVEA API Online', timestamp: new Date().toISOString(), version: '3.0', functions: 196, status: 'operational' } }}",
+        "options": {
+          "headers": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              },
+              {
+                "name": "Access-Control-Allow-Methods",
+                "value": "GET, POST, PUT, DELETE, OPTIONS"
+              },
+              {
+                "name": "Access-Control-Allow-Headers",
+                "value": "Content-Type, Authorization, x-elevea-key"
+              }
+            ]
+          }
+        }
+      },
+      "id": "respond-ping",
+      "name": "📤 Respond - Ping",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        460,
+        100
+      ]
+    }
+  ],
+  "connections": {
+    "webhook-ping": {
+      "main": [
+        [
+          {
+            "node": "respond-ping",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": [
+    "modular",
+    "elevea",
+    "system"
+  ]
+}

@@ -1,0 +1,124 @@
+{
+  "name": "helpers_api_helpers_consolidate_contacts",
+  "description": "Workflow modular para api/helpers/consolidate-contacts - Módulo HELPERS",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "api/helpers/consolidate-contacts",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "webhook-consolidate-contacts",
+      "name": "📇 Webhook - Consolidate Contacts",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [
+        260,
+        11500
+      ],
+      "webhookId": "elevea-consolidate-contacts"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {
+          "headers": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          }
+        }
+      },
+      "id": "respond-consolidate-contacts",
+      "name": "📤 Respond - Consolidate Contacts",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1060,
+        11500
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Processar dados do webhook\nreturn [{ json: $input.first().json }];"
+      },
+      "id": "process-webhook-consolidate-contacts",
+      "name": "🔧 Process - 📇 Webhook - Consolidate Contacts",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        400,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { success: true, message: '🔧 Process - 📇 Webhook - Consolidate Contacts processado', timestamp: new Date().toISOString() } }}",
+        "options": {}
+      },
+      "id": "respond-process-webhook-consolidate-contacts",
+      "name": "📤 Respond - 📇 Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        800,
+        100
+      ]
+    }
+  ],
+  "connections": {
+    "webhook-consolidate-contacts": {
+      "main": [
+        [
+          {
+            "node": "respond-consolidate-contacts",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "process-webhook-consolidate-contacts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "respond-consolidate-contacts": {
+      "main": [
+        [
+          {
+            "node": "respond-consolidate-contacts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "process-webhook-consolidate-contacts": {
+      "main": [
+        [
+          {
+            "node": "respond-process-webhook-consolidate-contacts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": [
+    "modular",
+    "elevea",
+    "helpers"
+  ]
+}

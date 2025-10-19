@@ -1,0 +1,233 @@
+{
+  "name": "site_management_api_site_content_update",
+  "description": "Workflow modular para api/site/content/update - Módulo SITE_MANAGEMENT",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "api/site/content/update",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "webhook-update-site-content",
+      "name": "📝 Webhook - Update Site Content",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [
+        260,
+        7300
+      ],
+      "webhookId": "elevea-update-site-content"
+    },
+    {
+      "parameters": {
+        "jsCode": "// FUNÇÃO: update_site_content (do GAS)\nconst out = [];\nfor (const { json } of items) {\n  const { siteSlug, sectionId, content, adminEmail } = json.body || {};\n  \n  if (!siteSlug || !sectionId || !content) {\n    out.push({\n      json: {\n        success: false,\n        error: 'siteSlug, sectionId e content são obrigatórios',\n        timestamp: new Date().toISOString()\n      }\n    });\n    continue;\n  }\n  \n  out.push({\n    json: {\n      siteSlug,\n      sectionId,\n      content: JSON.stringify(content),\n      updatedBy: adminEmail || 'admin@elevea.com',\n      timestamp: new Date().toISOString()\n    }\n  });\n}\nreturn out;"
+      },
+      "id": "code-update-site-content",
+      "name": "📝 Code - Update Site Content",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        460,
+        7300
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "search",
+        "base": {
+          "__rl": true,
+          "value": "appELEVEA",
+          "mode": "list"
+        },
+        "table": {
+          "__rl": true,
+          "value": "site_structures",
+          "mode": "list"
+        },
+        "filterByFormula": "=AND({siteSlug}='{{ $json.siteSlug }}')",
+        "options": {}
+      },
+      "id": "airtable-search-site-for-update",
+      "name": "🗄️ Airtable - Search Site For Update",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [
+        660,
+        7300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Atualizar seção específica\nconst out = [];\nfor (const { json } of items) {\n  const fields = json.fields || {};\n  const sections = JSON.parse(fields.sections || '[]');\n  \n  // Atualizar seção específica\n  const updatedSections = sections.map(s => {\n    if (s.id === json.sectionId) {\n      return { ...s, content: JSON.parse(json.content), updatedAt: new Date().toISOString() };\n    }\n    return s;\n  });\n  \n  out.push({\n    json: {\n      recordId: json.id,\n      siteSlug: json.siteSlug,\n      sections: JSON.stringify(updatedSections),\n      timestamp: new Date().toISOString()\n    }\n  });\n}\nreturn out;"
+      },
+      "id": "code-process-content-update",
+      "name": "📝 Code - Process Content Update",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        860,
+        7300
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "base": {
+          "__rl": true,
+          "value": "appELEVEA",
+          "mode": "list"
+        },
+        "table": {
+          "__rl": true,
+          "value": "site_structures",
+          "mode": "list"
+        },
+        "id": "={{ $json.recordId }}",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldName": "sections",
+              "fieldValue": "={{ $json.sections }}"
+            },
+            {
+              "fieldName": "updated_at",
+              "fieldValue": "={{ new Date().toISOString() }}"
+            }
+          ]
+        }
+      },
+      "id": "airtable-update-site-content",
+      "name": "🗄️ Airtable - Update Site Content",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [
+        1060,
+        7300
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://api.netlify.com/build_hooks/{{ $env.NETLIFY_BUILD_HOOK }}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ {\n  \"trigger_title\": \"Conteúdo atualizado: \" + $json.siteSlug,\n  \"trigger_branch\": \"main\"\n} }}",
+        "options": {}
+      },
+      "id": "http-netlify-rebuild-content",
+      "name": "🏗️ HTTP - Netlify Rebuild Content",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1260,
+        7300
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { success: true, message: 'Conteúdo do site atualizado', siteSlug: $json.siteSlug, sectionId: $json.sectionId, timestamp: new Date().toISOString() } }}",
+        "options": {
+          "headers": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          }
+        }
+      },
+      "id": "respond-update-site-content",
+      "name": "📤 Respond - Update Site Content",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1460,
+        7300
+      ]
+    }
+  ],
+  "connections": {
+    "webhook-update-site-content": {
+      "main": [
+        [
+          {
+            "node": "code-update-site-content",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "respond-update-site-content",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "code-update-site-content": {
+      "main": [
+        [
+          {
+            "node": "airtable-search-site-for-update",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "airtable-search-site-for-update": {
+      "main": [
+        [
+          {
+            "node": "code-process-content-update",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "code-process-content-update": {
+      "main": [
+        [
+          {
+            "node": "airtable-update-site-content",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "airtable-update-site-content": {
+      "main": [
+        [
+          {
+            "node": "http-netlify-rebuild-content",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "http-netlify-rebuild-content": {
+      "main": [
+        [
+          {
+            "node": "respond-update-site-content",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": [
+    "modular",
+    "elevea",
+    "site_management"
+  ]
+}

@@ -1,0 +1,427 @@
+{
+  "name": "whatsapp_business_api",
+  "description": "WhatsApp Business API - disparos em massa e verificação",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "api/whatsapp/send-bulk",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "node_1_webhook-wa-send-bulk",
+      "name": "📱 Webhook - WA Send Bulk (Oficial)",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [
+        260,
+        2500
+      ],
+      "webhookId": "elevea-wa-send-bulk"
+    },
+    {
+      "parameters": {
+        "jsCode": "// FUNÇÃO: wa_send / wa_send_text / wa_send_template (do GAS) - API OFICIAL\nconst out = [];\nfor (const { json } of items) {\n  const { siteSlug, phones, message, template, templateName } = json.body || {};\n  \n  if (!siteSlug || (!phones || phones.length === 0)) {\n    out.push({\n      json: {\n        success: false,\n        error: 'siteSlug e phones são obrigatórios',\n        timestamp: new Date().toISOString()\n      }\n    });\n    continue;\n  }\n  \n  // Normalizar telefones\n  const normalizePhone = (phone) => {\n    const digits = phone.replace(/\\D/g, '');\n    if (digits.startsWith('55')) return digits;\n    if (digits.length === 11) return '55' + digits;\n    if (digits.length === 10) return '55' + digits;\n    return digits;\n  };\n  \n  const normalizedPhones = phones.map(p => normalizePhone(p));\n  \n  out.push({\n    json: {\n      success: true,\n      siteSlug,\n      phones: normalizedPhones,\n      message: message || 'Mensagem da ELEVEA',\n      template: template || null,\n      templateName: templateName || null,\n      useTemplate: !!template || !!templateName,\n      timestamp: new Date().toISOString()\n    }\n  });\n}\nreturn out;"
+      },
+      "id": "node_2_code-wa-send-bulk",
+      "name": "📱 Code - WA Send Bulk",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        460,
+        2500
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "search",
+        "base": {
+          "__rl": true,
+          "value": "appELEVEA",
+          "mode": "list"
+        },
+        "table": {
+          "__rl": true,
+          "value": "clients",
+          "mode": "list"
+        },
+        "filterByFormula": "=AND({siteSlug}='{{ $json.siteSlug }}')",
+        "options": {}
+      },
+      "id": "node_3_airtable-check-client-wa-bulk",
+      "name": "🗄️ Airtable - Check Client WA Bulk",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [
+        660,
+        2500
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Validar se cliente pode enviar WhatsApp (limites)\nconst out = [];\nfor (const { json } of items) {\n  const client = json.fields || {};\n  const plan = client.plan || 'essential';\n  const isVip = plan === 'vip';\n  const status = client.status || 'active';\n  \n  if (status !== 'active') {\n    out.push({\n      json: {\n        success: false,\n        error: 'Cliente bloqueado ou inativo',\n        canSend: false,\n        timestamp: new Date().toISOString()\n      }\n    });\n    continue;\n  }\n  \n  // Essential: limite de 100 mensagens/mês\n  // VIP: ilimitado\n  const canSend = isVip || true; // TODO: implementar contador mensal\n  \n  out.push({\n    json: {\n      success: true,\n      canSend: canSend,\n      siteSlug: client.siteSlug,\n      plan: plan,\n      isVip: isVip,\n      phones: json.phones,\n      message: json.message,\n      useTemplate: json.useTemplate,\n      templateName: json.templateName,\n      timestamp: new Date().toISOString()\n    }\n  });\n}\nreturn out;"
+      },
+      "id": "node_4_code-validate-wa-limits",
+      "name": "✅ Code - Validate WA Limits",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        860,
+        2500
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json.canSend }}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "node_5_if-can-send-wa",
+      "name": "🔀 IF - Can Send WA",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        1060,
+        2500
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Preparar requests individuais para cada telefone\nconst out = [];\nconst { phones, message, useTemplate, templateName, siteSlug } = items[0].json;\n\nfor (const phone of phones) {\n  out.push({\n    json: {\n      phone,\n      message,\n      siteSlug,\n      useTemplate,\n      templateName,\n      timestamp: new Date().toISOString()\n    }\n  });\n}\nreturn out;"
+      },
+      "id": "node_6_code-split-wa-messages",
+      "name": "📱 Code - Split WA Messages",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1260,
+        2500
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://graph.facebook.com/v18.0/{{ $env.WHATSAPP_PHONE_NUMBER_ID }}/messages",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json.useTemplate ? {\n  \"messaging_product\": \"whatsapp\",\n  \"to\": $json.phone,\n  \"type\": \"template\",\n  \"template\": {\n    \"name\": $json.templateName || \"hello_world\",\n    \"language\": { \"code\": \"pt_BR\" }\n  }\n} : {\n  \"messaging_product\": \"whatsapp\",\n  \"to\": $json.phone,\n  \"type\": \"text\",\n  \"text\": { \"body\": $json.message }\n} }}",
+        "options": {}
+      },
+      "id": "node_7_http-wa-send-official",
+      "name": "📱 HTTP - WA Send Official",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1460,
+        2500
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Salvar mensagem enviada no histórico\nconst out = [];\nfor (const { json } of items) {\n  const waResponse = json;\n  out.push({\n    json: {\n      messageId: waResponse.messages?.[0]?.id || 'unknown',\n      siteSlug: json.siteSlug,\n      phone: json.phone,\n      messageText: json.message,\n      direction: 'outgoing',\n      status: waResponse.messages?.[0]?.message_status || 'sent',\n      apiProvider: 'official',\n      timestamp: new Date().toISOString()\n    }\n  });\n}\nreturn out;"
+      },
+      "id": "node_8_code-prepare-wa-save",
+      "name": "📝 Code - Prepare WA Save",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1660,
+        2500
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "base": {
+          "__rl": true,
+          "value": "appELEVEA",
+          "mode": "list"
+        },
+        "table": {
+          "__rl": true,
+          "value": "whatsapp_messages",
+          "mode": "list"
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldName": "message_id",
+              "fieldValue": "={{ $json.messageId }}"
+            },
+            {
+              "fieldName": "site_slug",
+              "fieldValue": "={{ $json.siteSlug }}"
+            },
+            {
+              "fieldName": "phone_number",
+              "fieldValue": "={{ $json.phone }}"
+            },
+            {
+              "fieldName": "message_text",
+              "fieldValue": "={{ $json.messageText }}"
+            },
+            {
+              "fieldName": "direction",
+              "fieldValue": "outgoing"
+            },
+            {
+              "fieldName": "status",
+              "fieldValue": "={{ $json.status }}"
+            },
+            {
+              "fieldName": "api_provider",
+              "fieldValue": "official"
+            }
+          ]
+        }
+      },
+      "id": "node_9_airtable-insert-wa-message",
+      "name": "🗄️ Airtable - Insert WA Message",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [
+        1860,
+        2500
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { success: true, message: 'Mensagens WhatsApp enviadas', count: $json.phones?.length || 1, timestamp: new Date().toISOString() } }}",
+        "options": {
+          "headers": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          }
+        }
+      },
+      "id": "node_10_respond-wa-send-bulk",
+      "name": "📤 Respond - WA Send Bulk",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        2060,
+        2500
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { success: true, message: '📱 Webhook - WA Send Bulk (Oficial) processado', timestamp: new Date().toISOString() } }}",
+        "options": {}
+      },
+      "id": "node_11_respond-webhook-wa-send-bulk",
+      "name": "📤 Respond - WA Send Bulk (Oficial)",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        800,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "GET",
+        "path": "api/whatsapp/webhook/verify",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "node_12_webhook-wa-verify",
+      "name": "📱 Webhook - WA Verify",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [
+        260,
+        2300
+      ],
+      "webhookId": "elevea-wa-verify"
+    },
+    {
+      "parameters": {
+        "jsCode": "// FUNÇÃO: wa_webhook_verify (do GAS)\nconst out = [];\nfor (const { json } of items) {\n  const query = json.query || {};\n  const mode = query['hub.mode'];\n  const token = query['hub.verify_token'];\n  const challenge = query['hub.challenge'];\n  \n  if (mode === 'subscribe' && token === 'ELEVEA_VERIFY_TOKEN') {\n    out.push({\n      json: {\n        success: true,\n        challenge: challenge,\n        verified: true\n      }\n    });\n  } else {\n    out.push({\n      json: {\n        success: false,\n        error: 'Verification failed'\n      }\n    });\n  }\n}\nreturn out;"
+      },
+      "id": "node_13_code-wa-verify",
+      "name": "📱 Code - WA Verify",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        460,
+        2300
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json.challenge || { success: false } }}",
+        "options": {}
+      },
+      "id": "node_14_respond-wa-verify",
+      "name": "📤 Respond - WA Verify",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        660,
+        2300
+      ]
+    }
+  ],
+  "connections": {
+    "node_1_webhook-wa-send-bulk": {
+      "main": [
+        [
+          {
+            "node": "node_2_code-wa-send-bulk",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "node_11_respond-webhook-wa-send-bulk",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "node_2_code-wa-send-bulk": {
+      "main": [
+        [
+          {
+            "node": "node_3_airtable-check-client-wa-bulk",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "node_3_airtable-check-client-wa-bulk": {
+      "main": [
+        [
+          {
+            "node": "node_4_code-validate-wa-limits",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "node_4_code-validate-wa-limits": {
+      "main": [
+        [
+          {
+            "node": "node_5_if-can-send-wa",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "node_5_if-can-send-wa": {
+      "main": [
+        [
+          {
+            "node": "node_6_code-split-wa-messages",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "node_10_respond-wa-send-bulk",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "node_6_code-split-wa-messages": {
+      "main": [
+        [
+          {
+            "node": "node_7_http-wa-send-official",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "node_7_http-wa-send-official": {
+      "main": [
+        [
+          {
+            "node": "node_8_code-prepare-wa-save",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "node_8_code-prepare-wa-save": {
+      "main": [
+        [
+          {
+            "node": "node_9_airtable-insert-wa-message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "node_9_airtable-insert-wa-message": {
+      "main": [
+        [
+          {
+            "node": "node_10_respond-wa-send-bulk",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "node_12_webhook-wa-verify": {
+      "main": [
+        [
+          {
+            "node": "node_13_code-wa-verify",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "node_14_respond-wa-verify",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "node_13_code-wa-verify": {
+      "main": [
+        [
+          {
+            "node": "node_14_respond-wa-verify",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": [
+    "optimized",
+    "elevea",
+    "modular"
+  ]
+}

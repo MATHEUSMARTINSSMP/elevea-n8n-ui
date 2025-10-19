@@ -1,42 +1,41 @@
-# === Build / Publish ===
 [build]
-  command   = "npm run build"
-  publish   = "dist"
-  functions = "netlify/functions"
+  command = "npm run build"
+  publish = "dist"
 
 [build.environment]
-  CI        = "false"
-  NPM_FLAGS = "--legacy-peer-deps"
+  NODE_VERSION = "18"
 
-# === Dev Server ===
-[dev]
-  command = "npm run dev:vite"
-  targetPort = 5000
-  port = 8888
-  publish = "dist"
-  functions = "netlify/functions"
-
-# === Functions (Node) ===
-[functions]
-  directory    = "netlify/functions"
-  node_bundler = "esbuild"
-
-# === Redirects / HTTP Functions ===
 [[redirects]]
-  from   = "/api/mp-webhook"
-  to     = "/.netlify/functions/mp-webhook"
+  from = "/api/feedbacks/submit"
+  to = "/.netlify/functions/api/feedbacks/submit"
   status = 200
 
-# SPA fallback (mantenha por ÚLTIMO)
 [[redirects]]
-  from   = "/*"
-  to     = "/index.html"
+  from = "/api/feedbacks/approve"
+  to = "/.netlify/functions/api/feedbacks/approve"
   status = 200
 
-# CORS p/ todas as Functions
+[[redirects]]
+  from = "/api/feedbacks/list"
+  to = "/.netlify/functions/api/feedbacks/list"
+  status = 200
+
+[[redirects]]
+  from = "/api/admin/build-hooks"
+  to = "/.netlify/functions/admin-build-hooks"
+  status = 200
+
+[[redirects]]
+  from = "/api/*"
+  to = "/.netlify/functions/api/:splat"
+  status = 200
+
 [[headers]]
-  for = "/.netlify/functions/*"
+  for = "/api/*"
   [headers.values]
-    Access-Control-Allow-Origin  = "*"
-    Access-Control-Allow-Methods = "GET, POST, PUT, DELETE, OPTIONS"
+    Access-Control-Allow-Origin = "*"
     Access-Control-Allow-Headers = "Content-Type, Authorization"
+    Access-Control-Allow-Methods = "GET, POST, PUT, DELETE, OPTIONS"
+
+[functions]
+  node_bundler = "esbuild"

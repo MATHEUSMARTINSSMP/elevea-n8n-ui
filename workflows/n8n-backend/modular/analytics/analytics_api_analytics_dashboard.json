@@ -1,0 +1,157 @@
+{
+  "name": "analytics_api_analytics_dashboard",
+  "description": "Workflow modular para api/analytics/dashboard - Módulo ANALYTICS",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "GET",
+        "path": "api/analytics/dashboard",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "webhook-analytics-dashboard",
+      "name": "📊 Webhook - Analytics Dashboard",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [
+        260,
+        5100
+      ],
+      "webhookId": "elevea-analytics-dashboard"
+    },
+    {
+      "parameters": {
+        "jsCode": "// FUNÇÃO: get_analytics / get_traffic (do GAS)\nconst out = [];\nfor (const { json } of items) {\n  const query = json.query || {};\n  const { siteSlug, startDate, endDate } = query;\n  \n  out.push({\n    json: {\n      siteSlug: siteSlug || 'all',\n      startDate: startDate || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(),\n      endDate: endDate || new Date().toISOString(),\n      timestamp: new Date().toISOString()\n    }\n  });\n}\nreturn out;"
+      },
+      "id": "code-analytics-dashboard",
+      "name": "📊 Code - Analytics Dashboard",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        460,
+        5100
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "list",
+        "base": {
+          "__rl": true,
+          "value": "appELEVEA",
+          "mode": "list"
+        },
+        "table": {
+          "__rl": true,
+          "value": "analytics_events",
+          "mode": "list"
+        },
+        "options": {}
+      },
+      "id": "airtable-list-analytics",
+      "name": "🗄️ Airtable - List Analytics",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [
+        660,
+        5100
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Processar e agregar analytics\nconst out = [];\nconst events = items.map(i => i.json.fields || {});\n\n// Contar por tipo de evento\nconst eventCounts = {};\nevents.forEach(e => {\n  const type = e.event_type || 'unknown';\n  eventCounts[type] = (eventCounts[type] || 0) + 1;\n});\n\n// Contar por dispositivo\nconst deviceCounts = {};\nevents.forEach(e => {\n  const device = e.device_type || 'unknown';\n  deviceCounts[device] = (deviceCounts[device] || 0) + 1;\n});\n\n// Contar por navegador\nconst browserCounts = {};\nevents.forEach(e => {\n  const browser = e.browser || 'unknown';\n  browserCounts[browser] = (browserCounts[browser] || 0) + 1;\n});\n\nout.push({\n  json: {\n    success: true,\n    analytics: {\n      totalEvents: events.length,\n      eventsByType: eventCounts,\n      deviceBreakdown: deviceCounts,\n      browserBreakdown: browserCounts,\n      topEvents: Object.entries(eventCounts).sort((a, b) => b[1] - a[1]).slice(0, 5)\n    },\n    timestamp: new Date().toISOString()\n  }\n});\nreturn out;"
+      },
+      "id": "code-process-analytics",
+      "name": "📊 Code - Process Analytics",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        860,
+        5100
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {
+          "headers": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          }
+        }
+      },
+      "id": "respond-analytics-dashboard",
+      "name": "📤 Respond - Analytics Dashboard",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1060,
+        5100
+      ]
+    }
+  ],
+  "connections": {
+    "webhook-analytics-dashboard": {
+      "main": [
+        [
+          {
+            "node": "code-analytics-dashboard",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "respond-analytics-dashboard",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "code-analytics-dashboard": {
+      "main": [
+        [
+          {
+            "node": "airtable-list-analytics",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "airtable-list-analytics": {
+      "main": [
+        [
+          {
+            "node": "code-process-analytics",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "code-process-analytics": {
+      "main": [
+        [
+          {
+            "node": "respond-analytics-dashboard",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": [
+    "modular",
+    "elevea",
+    "analytics"
+  ]
+}

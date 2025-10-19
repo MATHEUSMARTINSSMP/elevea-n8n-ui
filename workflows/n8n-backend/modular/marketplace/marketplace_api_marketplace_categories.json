@@ -1,0 +1,185 @@
+{
+  "name": "marketplace_api_marketplace_categories",
+  "description": "Workflow modular para api/marketplace/categories - Módulo MARKETPLACE",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "api/marketplace/categories",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "webhook-marketplace-categories",
+      "name": "🏪 Webhook - Marketplace Categories",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [
+        260,
+        15400
+      ],
+      "webhookId": "elevea-marketplace-categories"
+    },
+    {
+      "parameters": {
+        "operation": "list",
+        "base": {
+          "__rl": true,
+          "value": "appELEVEA",
+          "mode": "list"
+        },
+        "table": {
+          "__rl": true,
+          "value": "template_categories",
+          "mode": "list"
+        },
+        "returnAll": true,
+        "options": {}
+      },
+      "id": "airtable-list-categories",
+      "name": "🗄️ Airtable - List Categories",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [
+        460,
+        15400
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "list",
+        "base": {
+          "__rl": true,
+          "value": "appELEVEA",
+          "mode": "list"
+        },
+        "table": {
+          "__rl": true,
+          "value": "marketplace_templates",
+          "mode": "list"
+        },
+        "returnAll": true,
+        "options": {}
+      },
+      "id": "airtable-list-all-templates",
+      "name": "🗄️ Airtable - List All Templates",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [
+        660,
+        15400
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Contar templates por categoria (do GAS linha 1422)\nconst categories = items[0]?.json || [];\nconst templates = items[1]?.json || [];\n\nconst categoryMap = {};\ncategories.forEach(cat => {\n  const fields = cat.fields || cat;\n  categoryMap[fields.id] = {\n    id: fields.id,\n    name: fields.name,\n    description: fields.description || '',\n    icon: fields.icon || '📦',\n    templateCount: 0\n  };\n});\n\n// Contar templates por categoria\ntemplates.forEach(tpl => {\n  const fields = tpl.fields || tpl;\n  const catId = fields.category;\n  if (catId && categoryMap[catId]) {\n    categoryMap[catId].templateCount++;\n  }\n});\n\nconst categoriesArray = Object.values(categoryMap);\n\nconst out = [{\n  json: {\n    success: true,\n    data: {\n      categories: categoriesArray,\n      total: categoriesArray.length\n    },\n    timestamp: new Date().toISOString()\n  }\n}];\nreturn out;"
+      },
+      "id": "code-count-templates-by-category",
+      "name": "📊 Code - Count Templates",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        860,
+        15400
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {
+          "headers": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          }
+        }
+      },
+      "id": "respond-marketplace-categories",
+      "name": "📤 Respond - Categories",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1060,
+        15400
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { success: true, message: '🏪 Webhook - Marketplace Categories processado', timestamp: new Date().toISOString() } }}",
+        "options": {}
+      },
+      "id": "respond-webhook-marketplace-categories",
+      "name": "📤 Respond - Marketplace Categories",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        800,
+        100
+      ]
+    }
+  ],
+  "connections": {
+    "webhook-marketplace-categories": {
+      "main": [
+        [
+          {
+            "node": "airtable-list-categories",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "respond-webhook-marketplace-categories",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "airtable-list-categories": {
+      "main": [
+        [
+          {
+            "node": "airtable-list-all-templates",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "airtable-list-all-templates": {
+      "main": [
+        [
+          {
+            "node": "code-count-templates-by-category",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "code-count-templates-by-category": {
+      "main": [
+        [
+          {
+            "node": "respond-marketplace-categories",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": [
+    "modular",
+    "elevea",
+    "marketplace"
+  ]
+}

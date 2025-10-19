@@ -1,0 +1,113 @@
+{
+  "name": "multi_language_api_multi_language_languages",
+  "description": "Workflow modular para api/multi-language/languages - Módulo MULTI_LANGUAGE",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "api/multi-language/languages",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "webhook-languages-list",
+      "name": "🌍 Webhook - Languages List",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [
+        260,
+        14600
+      ],
+      "webhookId": "elevea-languages-list"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Retornar lista de idiomas suportados (baseado no GAS linha 12 NEW_FEATURES_CONFIG)\nconst languages = [\n  { code: 'pt', name: 'Português', nativeName: 'Português', flag: '🇧🇷' },\n  { code: 'en', name: 'English', nativeName: 'English', flag: '🇺🇸' },\n  { code: 'es', name: 'Spanish', nativeName: 'Español', flag: '🇪🇸' },\n  { code: 'fr', name: 'French', nativeName: 'Français', flag: '🇫🇷' },\n  { code: 'it', name: 'Italian', nativeName: 'Italiano', flag: '🇮🇹' },\n  { code: 'de', name: 'German', nativeName: 'Deutsch', flag: '🇩🇪' }\n];\n\nconst out = [{\n  json: {\n    success: true,\n    data: {\n      languages: languages,\n      total: languages.length,\n      default: 'pt'\n    },\n    timestamp: new Date().toISOString()\n  }\n}];\nreturn out;"
+      },
+      "id": "code-languages-list",
+      "name": "📝 Code - Languages List",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        460,
+        14600
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {
+          "headers": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          }
+        }
+      },
+      "id": "respond-languages-list",
+      "name": "📤 Respond - Languages",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        660,
+        14600
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { success: true, message: '🌍 Webhook - Languages List processado', timestamp: new Date().toISOString() } }}",
+        "options": {}
+      },
+      "id": "respond-webhook-languages-list",
+      "name": "📤 Respond - Languages List",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        800,
+        100
+      ]
+    }
+  ],
+  "connections": {
+    "webhook-languages-list": {
+      "main": [
+        [
+          {
+            "node": "code-languages-list",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "respond-webhook-languages-list",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "code-languages-list": {
+      "main": [
+        [
+          {
+            "node": "respond-languages-list",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": [
+    "modular",
+    "elevea",
+    "multi_language"
+  ]
+}

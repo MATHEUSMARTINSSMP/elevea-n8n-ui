@@ -1,0 +1,158 @@
+{
+  "name": "modules_api_modules_list",
+  "description": "Workflow modular para api/modules/list - Módulo MODULES",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "GET",
+        "path": "api/modules/list",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "webhook-modules-list",
+      "name": "🧩 Webhook - Modules List",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [
+        260,
+        8100
+      ],
+      "webhookId": "elevea-modules-list"
+    },
+    {
+      "parameters": {
+        "jsCode": "// FUNÇÃO: list_modules / get_active_modules (do GAS)\nconst out = [];\nfor (const { json } of items) {\n  const query = json.query || {};\n  const { siteSlug } = query;\n  \n  if (!siteSlug) {\n    out.push({\n      json: {\n        success: false,\n        error: 'siteSlug é obrigatório',\n        timestamp: new Date().toISOString()\n      }\n    });\n    continue;\n  }\n  \n  out.push({ json: { siteSlug, timestamp: new Date().toISOString() } });\n}\nreturn out;"
+      },
+      "id": "code-modules-list",
+      "name": "🧩 Code - Modules List",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        460,
+        8100
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "search",
+        "base": {
+          "__rl": true,
+          "value": "appELEVEA",
+          "mode": "list"
+        },
+        "table": {
+          "__rl": true,
+          "value": "clients",
+          "mode": "list"
+        },
+        "filterByFormula": "=AND({siteSlug}='{{ $json.siteSlug }}')",
+        "options": {}
+      },
+      "id": "airtable-search-client-modules",
+      "name": "🗄️ Airtable - Search Client Modules",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [
+        660,
+        8100
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Retornar módulos disponíveis baseado no plano\nconst out = [];\nfor (const { json } of items) {\n  const client = json.fields || {};\n  const plan = client.plan || 'essential';\n  const isVip = plan === 'vip';\n  \n  const allModules = [\n    { id: 'basic-website', name: 'Site Básico', enabled: true, requiredPlan: 'essential' },\n    { id: 'google-my-business', name: 'Google Meu Negócio', enabled: true, requiredPlan: 'essential' },\n    { id: 'ai-copywriter', name: 'IA Copywriter', enabled: isVip, requiredPlan: 'vip' },\n    { id: 'auto-seo', name: 'SEO Automático', enabled: isVip, requiredPlan: 'vip' },\n    { id: 'lead-scoring', name: 'Lead Scoring', enabled: isVip, requiredPlan: 'vip' },\n    { id: 'whatsapp-chatbot', name: 'Chatbot WhatsApp', enabled: isVip, requiredPlan: 'vip' },\n    { id: 'appointment-scheduling', name: 'Agendamentos', enabled: isVip, requiredPlan: 'vip' },\n    { id: 'multi-language', name: 'Multi-idioma', enabled: isVip, requiredPlan: 'vip' },\n    { id: 'ecommerce', name: 'E-commerce', enabled: isVip, requiredPlan: 'vip' },\n    { id: 'premium-templates', name: 'Templates Premium', enabled: isVip, requiredPlan: 'vip' },\n    { id: 'white-label', name: 'White Label', enabled: isVip, requiredPlan: 'vip' },\n    { id: 'audit-logs', name: 'Logs de Auditoria', enabled: isVip, requiredPlan: 'vip' },\n    { id: 'feedback-system', name: 'Sistema de Feedback', enabled: isVip, requiredPlan: 'vip' }\n  ];\n  \n  out.push({\n    json: {\n      success: true,\n      siteSlug: client.siteSlug,\n      plan: plan,\n      modules: allModules,\n      enabledCount: allModules.filter(m => m.enabled).length,\n      timestamp: new Date().toISOString()\n    }\n  });\n}\nreturn out;"
+      },
+      "id": "code-format-modules-list",
+      "name": "🧩 Code - Format Modules List",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        860,
+        8100
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {
+          "headers": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          }
+        }
+      },
+      "id": "respond-modules-list",
+      "name": "📤 Respond - Modules List",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1060,
+        8100
+      ]
+    }
+  ],
+  "connections": {
+    "webhook-modules-list": {
+      "main": [
+        [
+          {
+            "node": "code-modules-list",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "respond-modules-list",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "code-modules-list": {
+      "main": [
+        [
+          {
+            "node": "airtable-search-client-modules",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "airtable-search-client-modules": {
+      "main": [
+        [
+          {
+            "node": "code-format-modules-list",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "code-format-modules-list": {
+      "main": [
+        [
+          {
+            "node": "respond-modules-list",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": [
+    "modular",
+    "elevea",
+    "modules"
+  ]
+}

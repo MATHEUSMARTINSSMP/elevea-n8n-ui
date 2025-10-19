@@ -1,0 +1,236 @@
+{
+  "name": "ecommerce_api_ecommerce_products_delete",
+  "description": "Workflow modular para api/ecommerce/products/delete - Módulo ECOMMERCE",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "api/ecommerce/products/delete",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "webhook-ecommerce-product-delete",
+      "name": "🛍️ Webhook - Ecommerce Delete Product",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [
+        260,
+        12100
+      ],
+      "webhookId": "elevea-ecommerce-product-delete"
+    },
+    {
+      "parameters": {
+        "jsCode": "// FUNÇÃO: ecommerce_delete_product (do GAS linha 1397) - SOFT DELETE\nconst out = [];\nfor (const { json } of items) {\n  const { site, siteSlug, productId } = json.body || {};\n  const normalizedSite = (site || siteSlug || '').toUpperCase();\n  \n  if (!normalizedSite || !productId) {\n    out.push({\n      json: {\n        success: false,\n        error: 'Site e Product ID são obrigatórios',\n        timestamp: new Date().toISOString()\n      }\n    });\n    continue;\n  }\n  \n  out.push({\n    json: {\n      siteSlug: normalizedSite,\n      productId: productId,\n      searchFormula: `AND({id}='${productId}', {site}='${normalizedSite}')`,\n      needsVipCheck: true,\n      timestamp: new Date().toISOString()\n    }\n  });\n}\nreturn out;"
+      },
+      "id": "code-product-delete-prep",
+      "name": "📝 Code - Prepare Product Delete",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        460,
+        12100
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "search",
+        "base": {
+          "__rl": true,
+          "value": "appELEVEA",
+          "mode": "list"
+        },
+        "table": {
+          "__rl": true,
+          "value": "clients",
+          "mode": "list"
+        },
+        "filterByFormula": "=AND({site_slug}='{{ $json.siteSlug }}', {plan}='vip')",
+        "options": {}
+      },
+      "id": "airtable-check-vip-product-delete",
+      "name": "🗄️ Airtable - Check VIP",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [
+        660,
+        12100
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "search",
+        "base": {
+          "__rl": true,
+          "value": "appELEVEA",
+          "mode": "list"
+        },
+        "table": {
+          "__rl": true,
+          "value": "products",
+          "mode": "list"
+        },
+        "filterByFormula": "={{ $json.searchFormula }}",
+        "options": {}
+      },
+      "id": "airtable-search-product-delete",
+      "name": "🗄️ Airtable - Search Product",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [
+        860,
+        12100
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "base": {
+          "__rl": true,
+          "value": "appELEVEA",
+          "mode": "list"
+        },
+        "table": {
+          "__rl": true,
+          "value": "products",
+          "mode": "list"
+        },
+        "id": "={{ $json.id }}",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldName": "active",
+              "fieldValue": "false"
+            },
+            {
+              "fieldName": "deleted_at",
+              "fieldValue": "={{ new Date().toISOString() }}"
+            },
+            {
+              "fieldName": "updated_at",
+              "fieldValue": "={{ new Date().toISOString() }}"
+            }
+          ]
+        }
+      },
+      "id": "airtable-soft-delete-product",
+      "name": "🗄️ Airtable - Soft Delete Product",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [
+        1060,
+        12100
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { success: true, message: 'Produto removido com sucesso', productId: $json.productId, timestamp: new Date().toISOString() } }}",
+        "options": {
+          "headers": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          }
+        }
+      },
+      "id": "respond-product-delete",
+      "name": "📤 Respond - Product Delete",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1260,
+        12100
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { success: true, message: '🛍️ Webhook - Ecommerce Delete Product processado', timestamp: new Date().toISOString() } }}",
+        "options": {}
+      },
+      "id": "respond-webhook-ecommerce-product-delete",
+      "name": "📤 Respond - Ecommerce Delete Product",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        800,
+        100
+      ]
+    }
+  ],
+  "connections": {
+    "webhook-ecommerce-product-delete": {
+      "main": [
+        [
+          {
+            "node": "code-product-delete-prep",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "respond-webhook-ecommerce-product-delete",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "code-product-delete-prep": {
+      "main": [
+        [
+          {
+            "node": "airtable-check-vip-product-delete",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "airtable-check-vip-product-delete": {
+      "main": [
+        [
+          {
+            "node": "airtable-search-product-delete",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "airtable-search-product-delete": {
+      "main": [
+        [
+          {
+            "node": "airtable-soft-delete-product",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "airtable-soft-delete-product": {
+      "main": [
+        [
+          {
+            "node": "respond-product-delete",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": [
+    "modular",
+    "elevea",
+    "ecommerce"
+  ]
+}

@@ -1,0 +1,263 @@
+{
+  "name": "appointments_api_appointments_confirm",
+  "description": "Workflow modular para api/appointments/confirm - Módulo APPOINTMENTS",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "api/appointments/confirm",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "webhook-appointment-confirm",
+      "name": "📅 Webhook - Appointment Confirm",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [
+        260,
+        12900
+      ],
+      "webhookId": "elevea-appointment-confirm"
+    },
+    {
+      "parameters": {
+        "jsCode": "// FUNÇÃO: appointment_confirm (lógica do GAS)\nconst out = [];\nfor (const { json } of items) {\n  const { appointmentId } = json.body || {};\n  \n  if (!appointmentId) {\n    out.push({\n      json: {\n        success: false,\n        error: 'Appointment ID é obrigatório',\n        timestamp: new Date().toISOString()\n      }\n    });\n    continue;\n  }\n  \n  out.push({\n    json: {\n      appointmentId: appointmentId,\n      searchFormula: `{id}='${appointmentId}'`,\n      timestamp: new Date().toISOString()\n    }\n  });\n}\nreturn out;"
+      },
+      "id": "code-appointment-confirm-prep",
+      "name": "📝 Code - Prepare Confirm",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        460,
+        12900
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "search",
+        "base": {
+          "__rl": true,
+          "value": "appELEVEA",
+          "mode": "list"
+        },
+        "table": {
+          "__rl": true,
+          "value": "appointments",
+          "mode": "list"
+        },
+        "filterByFormula": "={{ $json.searchFormula }}",
+        "options": {}
+      },
+      "id": "airtable-search-appointment-confirm",
+      "name": "🗄️ Airtable - Search Appointment",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [
+        660,
+        12900
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "base": {
+          "__rl": true,
+          "value": "appELEVEA",
+          "mode": "list"
+        },
+        "table": {
+          "__rl": true,
+          "value": "appointments",
+          "mode": "list"
+        },
+        "id": "={{ $json.id }}",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldName": "status",
+              "fieldValue": "confirmed"
+            },
+            {
+              "fieldName": "confirmedAt",
+              "fieldValue": "={{ new Date().toISOString() }}"
+            }
+          ]
+        }
+      },
+      "id": "airtable-confirm-appointment",
+      "name": "🗄️ Airtable - Confirm Appointment",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [
+        860,
+        12900
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Preparar mensagem WhatsApp de confirmação (usa processMessageVariables do GAS linha 7591)\nconst out = [];\nfor (const { json } of items) {\n  const fields = json.fields || {};\n  const phone = (fields.customerPhone || '').replace(/\\D/g, '');\n  const name = fields.customerName || 'Cliente';\n  const datetime = new Date(fields.datetime);\n  const data = datetime.toLocaleDateString('pt-BR');\n  const hora = datetime.toLocaleTimeString('pt-BR', {hour: '2-digit', minute: '2-digit'});\n  \n  // Saudação automática\n  const hour = new Date().getHours();\n  const saudacao = hour < 12 ? 'Bom dia' : hour < 18 ? 'Boa tarde' : 'Boa noite';\n  \n  const message = `${saudacao}, ${name}! ✅ Seu agendamento foi CONFIRMADO para ${data} às ${hora}. Até lá!`;\n  \n  out.push({\n    json: {\n      to: phone.length === 11 ? '55' + phone : phone,\n      message: message,\n      customerEmail: fields.customerEmail,\n      appointmentId: fields.id,\n      timestamp: new Date().toISOString()\n    }\n  });\n}\nreturn out;"
+      },
+      "id": "code-prep-confirm-whatsapp",
+      "name": "📱 Code - Prep WhatsApp Confirm",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1060,
+        12900
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://graph.facebook.com/v18.0/PHONE_ID/messages",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer {{ $json.WHATSAPP_TOKEN }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "messaging_product",
+              "value": "whatsapp"
+            },
+            {
+              "name": "to",
+              "value": "={{ $json.to }}"
+            },
+            {
+              "name": "type",
+              "value": "text"
+            },
+            {
+              "name": "text",
+              "value": "={{ { body: $json.message } }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "http-whatsapp-confirm-notif",
+      "name": "📱 HTTP - WhatsApp Confirm Notif",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        1260,
+        12900
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { success: true, message: 'Agendamento confirmado e notificação enviada', timestamp: new Date().toISOString() } }}",
+        "options": {
+          "headers": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          }
+        }
+      },
+      "id": "respond-appointment-confirm",
+      "name": "📤 Respond - Appointment Confirm",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1460,
+        12900
+      ]
+    }
+  ],
+  "connections": {
+    "webhook-appointment-confirm": {
+      "main": [
+        [
+          {
+            "node": "code-appointment-confirm-prep",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "respond-appointment-confirm",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "code-appointment-confirm-prep": {
+      "main": [
+        [
+          {
+            "node": "airtable-search-appointment-confirm",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "airtable-search-appointment-confirm": {
+      "main": [
+        [
+          {
+            "node": "airtable-confirm-appointment",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "airtable-confirm-appointment": {
+      "main": [
+        [
+          {
+            "node": "code-prep-confirm-whatsapp",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "code-prep-confirm-whatsapp": {
+      "main": [
+        [
+          {
+            "node": "http-whatsapp-confirm-notif",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "http-whatsapp-confirm-notif": {
+      "main": [
+        [
+          {
+            "node": "respond-appointment-confirm",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": [
+    "modular",
+    "elevea",
+    "appointments"
+  ]
+}

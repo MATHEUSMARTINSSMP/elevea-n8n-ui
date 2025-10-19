@@ -1,0 +1,124 @@
+{
+  "name": "appointments_api_appointments_create",
+  "description": "Workflow modular para api/appointments/create - Módulo APPOINTMENTS",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "api/appointments/create",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "webhook-appointment-create",
+      "name": "📅 Webhook - Appointment Create",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [
+        260,
+        11100
+      ],
+      "webhookId": "elevea-appointment-create"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { success: true, message: 'Agendamento criado com sucesso', appointmentId: $json.appointmentId, timestamp: new Date().toISOString() } }}",
+        "options": {
+          "headers": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          }
+        }
+      },
+      "id": "respond-appointment-create",
+      "name": "📤 Respond - Appointment Create",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1260,
+        11100
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Processar dados do webhook\nreturn [{ json: $input.first().json }];"
+      },
+      "id": "process-webhook-appointment-create",
+      "name": "🔧 Process - 📅 Webhook - Appointment Create",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        400,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { success: true, message: '🔧 Process - 📅 Webhook - Appointments List processado', timestamp: new Date().toISOString() } }}",
+        "options": {}
+      },
+      "id": "respond-process-webhook-appointments-list",
+      "name": "📤 Respond - 📅 Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        800,
+        100
+      ]
+    }
+  ],
+  "connections": {
+    "webhook-appointment-create": {
+      "main": [
+        [
+          {
+            "node": "respond-appointment-create",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "process-webhook-appointment-create",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "respond-appointment-create": {
+      "main": [
+        [
+          {
+            "node": "respond-appointment-create",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "process-webhook-appointment-create": {
+      "main": [
+        [
+          {
+            "node": "respond-process-webhook-appointments-list",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": [
+    "modular",
+    "elevea",
+    "appointments"
+  ]
+}

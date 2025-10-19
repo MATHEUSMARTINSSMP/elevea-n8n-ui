@@ -1,0 +1,676 @@
+{
+  "name": "whatsapp_template_messages",
+  "description": "Templates e histórico de mensagens",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "GET",
+        "path": "api/whatsapp/templates",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "node_1_webhook-wa-templates",
+      "name": "📱 Webhook - WA Templates",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [
+        260,
+        3300
+      ],
+      "webhookId": "elevea-wa-templates"
+    },
+    {
+      "parameters": {
+        "jsCode": "// FUNÇÃO: wa_get_templates (do GAS)\nconst out = [];\nfor (const { json } of items) {\n  const query = json.query || {};\n  const { siteSlug } = query;\n  \n  out.push({\n    json: {\n      siteSlug: siteSlug || 'all',\n      timestamp: new Date().toISOString()\n    }\n  });\n}\nreturn out;"
+      },
+      "id": "node_2_code-wa-templates",
+      "name": "📱 Code - WA Templates",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        460,
+        3300
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "list",
+        "base": {
+          "__rl": true,
+          "value": "appELEVEA",
+          "mode": "list"
+        },
+        "table": {
+          "__rl": true,
+          "value": "whatsapp_templates",
+          "mode": "list"
+        },
+        "options": {}
+      },
+      "id": "node_3_airtable-list-wa-templates",
+      "name": "🗄️ Airtable - List WA Templates",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [
+        660,
+        3300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Formatar lista de templates\nconst out = [];\nconst templates = [];\n\nfor (const { json } of items) {\n  const fields = json.fields || {};\n  templates.push({\n    templateId: fields.template_id,\n    name: fields.name,\n    content: fields.content,\n    category: fields.category,\n    language: fields.language,\n    status: fields.status,\n    variables: fields.variables ? JSON.parse(fields.variables) : []\n  });\n}\n\nout.push({\n  json: {\n    success: true,\n    templates: templates,\n    count: templates.length,\n    timestamp: new Date().toISOString()\n  }\n});\nreturn out;"
+      },
+      "id": "node_4_code-format-wa-templates",
+      "name": "📱 Code - Format WA Templates",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        860,
+        3300
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {
+          "headers": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          }
+        }
+      },
+      "id": "node_5_respond-wa-templates",
+      "name": "📤 Respond - WA Templates",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1060,
+        3300
+      ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "api/whatsapp/templates/upsert",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "node_6_webhook-wa-template-upsert",
+      "name": "📱 Webhook - WhatsApp Template Upsert",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [
+        260,
+        11600
+      ],
+      "webhookId": "elevea-wa-template-upsert"
+    },
+    {
+      "parameters": {
+        "jsCode": "// FUNÇÃO: wa_upsert_template (do GAS linha 1139)\nconst crypto = require('crypto');\nconst out = [];\n\nfor (const { json } of items) {\n  const { site, siteSlug, template } = json.body || {};\n  const normalizedSite = (site || siteSlug || '').toUpperCase();\n  \n  if (!normalizedSite || !template) {\n    out.push({\n      json: {\n        success: false,\n        error: 'Site e template são obrigatórios',\n        timestamp: new Date().toISOString()\n      }\n    });\n    continue;\n  }\n  \n  if (!template.name) {\n    out.push({\n      json: {\n        success: false,\n        error: 'Template name é obrigatório',\n        timestamp: new Date().toISOString()\n      }\n    });\n    continue;\n  }\n  \n  const templateData = {\n    id: template.id || crypto.randomUUID(),\n    siteSlug: normalizedSite,\n    name: template.name,\n    displayName: template.displayName || template.name,\n    lang: template.lang || 'pt_BR',\n    description: template.description || '',\n    category: template.category || '',\n    status: template.status || 'APPROVED',\n    content: template.content || '',\n    variables: JSON.stringify(template.variables || []),\n    createdAt: template.createdAt || new Date().toISOString(),\n    updatedAt: new Date().toISOString()\n  };\n  \n  const isUpdate = !!template.id;\n  const searchFormula = isUpdate ? `AND({id}='${templateData.id}', {siteSlug}='${normalizedSite}')` : null;\n  \n  out.push({\n    json: {\n      ...templateData,\n      isUpdate: isUpdate,\n      searchFormula: searchFormula,\n      timestamp: new Date().toISOString()\n    }\n  });\n}\nreturn out;"
+      },
+      "id": "node_7_code-wa-template-prep",
+      "name": "📝 Code - Prepare Template",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        460,
+        11600
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json.isUpdate }}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "node_8_if-template-exists",
+      "name": "🔀 IF - Template Exists?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        660,
+        11600
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "search",
+        "base": {
+          "__rl": true,
+          "value": "appELEVEA",
+          "mode": "list"
+        },
+        "table": {
+          "__rl": true,
+          "value": "whatsapp_templates",
+          "mode": "list"
+        },
+        "filterByFormula": "={{ $json.searchFormula }}",
+        "options": {}
+      },
+      "id": "node_9_airtable-search-wa-template",
+      "name": "🗄️ Airtable - Search Template",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [
+        860,
+        11500
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "base": {
+          "__rl": true,
+          "value": "appELEVEA",
+          "mode": "list"
+        },
+        "table": {
+          "__rl": true,
+          "value": "whatsapp_templates",
+          "mode": "list"
+        },
+        "id": "={{ $json.id }}",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldName": "name",
+              "fieldValue": "={{ $json.name }}"
+            },
+            {
+              "fieldName": "displayName",
+              "fieldValue": "={{ $json.displayName }}"
+            },
+            {
+              "fieldName": "lang",
+              "fieldValue": "={{ $json.lang }}"
+            },
+            {
+              "fieldName": "description",
+              "fieldValue": "={{ $json.description }}"
+            },
+            {
+              "fieldName": "category",
+              "fieldValue": "={{ $json.category }}"
+            },
+            {
+              "fieldName": "status",
+              "fieldValue": "={{ $json.status }}"
+            },
+            {
+              "fieldName": "content",
+              "fieldValue": "={{ $json.content }}"
+            },
+            {
+              "fieldName": "variables",
+              "fieldValue": "={{ $json.variables }}"
+            },
+            {
+              "fieldName": "updatedAt",
+              "fieldValue": "={{ $json.updatedAt }}"
+            }
+          ]
+        }
+      },
+      "id": "node_10_airtable-update-wa-template",
+      "name": "🗄️ Airtable - Update Template",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [
+        1060,
+        11500
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { success: true, message: 'Template salvo com sucesso', data: { id: $json.id || $json.fields.id }, timestamp: new Date().toISOString() } }}",
+        "options": {
+          "headers": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          }
+        }
+      },
+      "id": "node_11_respond-wa-template-upsert",
+      "name": "📤 Respond - WA Template Upsert",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1260,
+        11600
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { success: true, message: '🔀 IF - Template Exists? processado', timestamp: new Date().toISOString() } }}",
+        "options": {}
+      },
+      "id": "node_12_respond-if-template-exists",
+      "name": "📤 Respond - Template Exists?",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        800,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "base": {
+          "__rl": true,
+          "value": "appELEVEA",
+          "mode": "list"
+        },
+        "table": {
+          "__rl": true,
+          "value": "whatsapp_templates",
+          "mode": "list"
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldName": "id",
+              "fieldValue": "={{ $json.id }}"
+            },
+            {
+              "fieldName": "siteSlug",
+              "fieldValue": "={{ $json.siteSlug }}"
+            },
+            {
+              "fieldName": "name",
+              "fieldValue": "={{ $json.name }}"
+            },
+            {
+              "fieldName": "displayName",
+              "fieldValue": "={{ $json.displayName }}"
+            },
+            {
+              "fieldName": "lang",
+              "fieldValue": "={{ $json.lang }}"
+            },
+            {
+              "fieldName": "description",
+              "fieldValue": "={{ $json.description }}"
+            },
+            {
+              "fieldName": "category",
+              "fieldValue": "={{ $json.category }}"
+            },
+            {
+              "fieldName": "status",
+              "fieldValue": "={{ $json.status }}"
+            },
+            {
+              "fieldName": "content",
+              "fieldValue": "={{ $json.content }}"
+            },
+            {
+              "fieldName": "variables",
+              "fieldValue": "={{ $json.variables }}"
+            },
+            {
+              "fieldName": "createdAt",
+              "fieldValue": "={{ $json.createdAt }}"
+            },
+            {
+              "fieldName": "updatedAt",
+              "fieldValue": "={{ $json.updatedAt }}"
+            }
+          ]
+        }
+      },
+      "id": "node_13_airtable-append-wa-template",
+      "name": "🗄️ Airtable - Append Template",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [
+        1060,
+        11700
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { success: true, message: '📝 Code - Prepare Template processado', timestamp: new Date().toISOString() } }}",
+        "options": {}
+      },
+      "id": "node_14_respond-code-wa-template-prep",
+      "name": "📤 Respond - Prepare Template",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        800,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { success: true, message: '📱 Webhook - WhatsApp Template Upsert processado', timestamp: new Date().toISOString() } }}",
+        "options": {}
+      },
+      "id": "node_15_respond-webhook-wa-template-upsert",
+      "name": "📤 Respond - WhatsApp Template Upsert",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        800,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "GET",
+        "path": "api/whatsapp/messages",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "node_16_webhook-wa-list-messages",
+      "name": "📱 Webhook - WA List Messages",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [
+        260,
+        3100
+      ],
+      "webhookId": "elevea-wa-list-messages"
+    },
+    {
+      "parameters": {
+        "jsCode": "// FUNÇÃO: wa_list_messages / listWhatsAppMessages_ (do GAS)\nconst out = [];\nfor (const { json } of items) {\n  const query = json.query || {};\n  const { siteSlug, phone, limit } = query;\n  \n  out.push({\n    json: {\n      siteSlug: siteSlug || 'all',\n      phone: phone || null,\n      limit: parseInt(limit) || 100,\n      timestamp: new Date().toISOString()\n    }\n  });\n}\nreturn out;"
+      },
+      "id": "node_17_code-wa-list-messages",
+      "name": "📱 Code - WA List Messages",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        460,
+        3100
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "list",
+        "base": {
+          "__rl": true,
+          "value": "appELEVEA",
+          "mode": "list"
+        },
+        "table": {
+          "__rl": true,
+          "value": "whatsapp_messages",
+          "mode": "list"
+        },
+        "limit": "={{ $json.limit }}",
+        "options": {
+          "sort": [
+            {
+              "field": "created_at",
+              "direction": "desc"
+            }
+          ]
+        }
+      },
+      "id": "node_18_airtable-list-wa-messages",
+      "name": "🗄️ Airtable - List WA Messages",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [
+        660,
+        3100
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Formatar lista de mensagens\nconst out = [];\nconst messages = [];\n\nfor (const { json } of items) {\n  const fields = json.fields || {};\n  messages.push({\n    messageId: fields.message_id,\n    siteSlug: fields.site_slug,\n    phone: fields.phone_number,\n    message: fields.message_text,\n    direction: fields.direction,\n    status: fields.status,\n    apiProvider: fields.api_provider,\n    createdAt: fields.created_at\n  });\n}\n\nout.push({\n  json: {\n    success: true,\n    messages: messages,\n    count: messages.length,\n    timestamp: new Date().toISOString()\n  }\n});\nreturn out;"
+      },
+      "id": "node_19_code-format-wa-messages-list",
+      "name": "📱 Code - Format WA Messages List",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        860,
+        3100
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {
+          "headers": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          }
+        }
+      },
+      "id": "node_20_respond-wa-list-messages",
+      "name": "📤 Respond - WA List Messages",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1060,
+        3100
+      ]
+    }
+  ],
+  "connections": {
+    "node_1_webhook-wa-templates": {
+      "main": [
+        [
+          {
+            "node": "node_2_code-wa-templates",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "node_5_respond-wa-templates",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "node_2_code-wa-templates": {
+      "main": [
+        [
+          {
+            "node": "node_3_airtable-list-wa-templates",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "node_3_airtable-list-wa-templates": {
+      "main": [
+        [
+          {
+            "node": "node_4_code-format-wa-templates",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "node_4_code-format-wa-templates": {
+      "main": [
+        [
+          {
+            "node": "node_5_respond-wa-templates",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "node_6_webhook-wa-template-upsert": {
+      "main": [
+        [
+          {
+            "node": "node_7_code-wa-template-prep",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "node_15_respond-webhook-wa-template-upsert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "node_7_code-wa-template-prep": {
+      "main": [
+        [
+          {
+            "node": "node_8_if-template-exists",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "node_14_respond-code-wa-template-prep",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "node_8_if-template-exists": {
+      "main": [
+        [
+          {
+            "node": "node_9_airtable-search-wa-template",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "node_12_respond-if-template-exists",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "node_13_airtable-append-wa-template",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "node_9_airtable-search-wa-template": {
+      "main": [
+        [
+          {
+            "node": "node_10_airtable-update-wa-template",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "node_10_airtable-update-wa-template": {
+      "main": [
+        [
+          {
+            "node": "node_11_respond-wa-template-upsert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "node_13_airtable-append-wa-template": {
+      "main": [
+        [
+          {
+            "node": "node_11_respond-wa-template-upsert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "node_16_webhook-wa-list-messages": {
+      "main": [
+        [
+          {
+            "node": "node_17_code-wa-list-messages",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "node_20_respond-wa-list-messages",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "node_17_code-wa-list-messages": {
+      "main": [
+        [
+          {
+            "node": "node_18_airtable-list-wa-messages",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "node_18_airtable-list-wa-messages": {
+      "main": [
+        [
+          {
+            "node": "node_19_code-format-wa-messages-list",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "node_19_code-format-wa-messages-list": {
+      "main": [
+        [
+          {
+            "node": "node_20_respond-wa-list-messages",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": [
+    "optimized",
+    "elevea",
+    "modular"
+  ]
+}

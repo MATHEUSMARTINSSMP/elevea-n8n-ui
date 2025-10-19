@@ -1,0 +1,593 @@
+{
+  "name": "billing_client_management",
+  "description": "Gerenciamento de planos, status e controles administrativos",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "api/client/plan",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "node_1_webhook-client-plan",
+      "name": "📊 Webhook - Client Plan",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [
+        260,
+        1500
+      ],
+      "webhookId": "elevea-client-plan"
+    },
+    {
+      "parameters": {
+        "jsCode": "// FUNÇÃO: client_plan / get_client_plan_v2 (do GAS)\nconst out = [];\nfor (const { json } of items) {\n  const { siteSlug, email } = json.body || {};\n  \n  if (!siteSlug && !email) {\n    out.push({\n      json: {\n        success: false,\n        error: 'siteSlug ou email é obrigatório',\n        timestamp: new Date().toISOString()\n      }\n    });\n    continue;\n  }\n  \n  out.push({\n    json: {\n      success: true,\n      siteSlug: siteSlug,\n      email: email,\n      needsClientData: true,\n      timestamp: new Date().toISOString()\n    }\n  });\n}\nreturn out;"
+      },
+      "id": "node_2_code-client-plan",
+      "name": "📊 Code - Client Plan",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        460,
+        1500
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "search",
+        "base": {
+          "__rl": true,
+          "value": "appELEVEA",
+          "mode": "list"
+        },
+        "table": {
+          "__rl": true,
+          "value": "clients",
+          "mode": "list"
+        },
+        "filterByFormula": "=OR({siteSlug}='{{ $json.siteSlug }}', {email}='{{ $json.email }}')",
+        "options": {}
+      },
+      "id": "node_3_airtable-search-client-plan",
+      "name": "🗄️ Airtable - Search Client Plan",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [
+        660,
+        1500
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "search",
+        "base": {
+          "__rl": true,
+          "value": "appELEVEA",
+          "mode": "list"
+        },
+        "table": {
+          "__rl": true,
+          "value": "billing",
+          "mode": "list"
+        },
+        "filterByFormula": "=AND({siteSlug}='{{ $json.fields.siteSlug }}')",
+        "options": {}
+      },
+      "id": "node_4_airtable-search-billing",
+      "name": "🗄️ Airtable - Search Billing",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [
+        860,
+        1500
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Processar dados completos do cliente com billing\nconst out = [];\nfor (const { json } of items) {\n  const client = json.fields || {};\n  const plan = client.plan || 'essential';\n  const isVip = plan === 'vip';\n  \n  const coreFeatures = ['basic-website', 'google-my-business'];\n  const vipFeatures = [\n    'ai-copywriter', 'auto-seo', 'lead-scoring', 'whatsapp-chatbot',\n    'appointment-scheduling', 'multi-language', 'ecommerce',\n    'premium-templates', 'white-label', 'audit-logs', 'feedback-system'\n  ];\n  \n  out.push({\n    json: {\n      success: true,\n      data: {\n        siteSlug: client.siteSlug,\n        email: client.email,\n        name: client.name,\n        plan: plan,\n        status: client.status || 'active',\n        features: isVip ? [...coreFeatures, ...vipFeatures] : coreFeatures,\n        isVip: isVip,\n        billing: {\n          provider: 'mercadopago',\n          preapproval_id: client.preapproval_id || '',\n          last_payment: client.last_payment || null,\n          amount: isVip ? 97 : 0,\n          payment_method: client.payment_method || null\n        },\n        limits: {\n          websites: isVip ? -1 : 1,\n          whatsapp_messages: isVip ? -1 : 100,\n          ai_requests: isVip ? -1 : 10,\n          storage: isVip ? 'unlimited' : '1GB'\n        },\n        createdAt: client.created_at,\n        updatedAt: client.updated_at || new Date().toISOString()\n      },\n      timestamp: new Date().toISOString()\n    }\n  });\n}\nreturn out;"
+      },
+      "id": "node_5_code-process-client-plan",
+      "name": "📊 Code - Process Client Plan",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1060,
+        1500
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {
+          "headers": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          }
+        }
+      },
+      "id": "node_6_respond-client-plan",
+      "name": "📤 Respond - Client Plan",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1260,
+        1500
+      ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "api/client/status",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "node_7_webhook-client-status",
+      "name": "📊 Webhook - Client Status",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [
+        260,
+        1700
+      ],
+      "webhookId": "elevea-client-status"
+    },
+    {
+      "parameters": {
+        "jsCode": "// FUNÇÃO: get_status / get_auth_status (do GAS)\nconst out = [];\nfor (const { json } of items) {\n  const { siteSlug } = json.body || {};\n  \n  if (!siteSlug) {\n    out.push({\n      json: {\n        success: false,\n        error: 'siteSlug é obrigatório',\n        timestamp: new Date().toISOString()\n      }\n    });\n    continue;\n  }\n  \n  out.push({ json: { siteSlug, timestamp: new Date().toISOString() } });\n}\nreturn out;"
+      },
+      "id": "node_8_code-client-status",
+      "name": "📊 Code - Client Status",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        460,
+        1700
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "search",
+        "base": {
+          "__rl": true,
+          "value": "appELEVEA",
+          "mode": "list"
+        },
+        "table": {
+          "__rl": true,
+          "value": "clients",
+          "mode": "list"
+        },
+        "filterByFormula": "=AND({siteSlug}='{{ $json.siteSlug }}')",
+        "options": {}
+      },
+      "id": "node_9_airtable-search-client-status",
+      "name": "🗄️ Airtable - Search Client Status",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [
+        660,
+        1700
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Retornar status do cliente\nconst out = [];\nfor (const { json } of items) {\n  const client = json.fields || {};\n  out.push({\n    json: {\n      success: true,\n      status: {\n        siteSlug: client.siteSlug,\n        status: client.status || 'active',\n        plan: client.plan || 'essential',\n        isActive: (client.status || 'active') === 'active',\n        isBlocked: (client.status || 'active') === 'blocked',\n        manualBlock: client.manual_block || false,\n        blockReason: client.block_reason || null,\n        lastPayment: client.last_payment || null\n      },\n      timestamp: new Date().toISOString()\n    }\n  });\n}\nreturn out;"
+      },
+      "id": "node_10_code-format-client-status",
+      "name": "📊 Code - Format Client Status",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        860,
+        1700
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {
+          "headers": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          }
+        }
+      },
+      "id": "node_11_respond-client-status",
+      "name": "📤 Respond - Client Status",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1060,
+        1700
+      ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "api/admin/toggle",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "node_12_webhook-admin-toggle",
+      "name": "🔧 Webhook - Admin Toggle",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [
+        260,
+        1900
+      ],
+      "webhookId": "elevea-admin-toggle"
+    },
+    {
+      "parameters": {
+        "jsCode": "// FUNÇÃO: admin_toggle / manual_block (do GAS)\nconst out = [];\nfor (const { json } of items) {\n  const { siteSlug, action, reason } = json.body || {};\n  \n  if (!siteSlug || !action) {\n    out.push({\n      json: {\n        success: false,\n        error: 'siteSlug e action são obrigatórios',\n        timestamp: new Date().toISOString()\n      }\n    });\n    continue;\n  }\n  \n  const newStatus = action === 'block' ? 'blocked' : 'active';\n  const isBlocking = action === 'block';\n  \n  out.push({\n    json: {\n      siteSlug,\n      newStatus,\n      isBlocking,\n      reason: reason || (isBlocking ? 'Bloqueio manual via admin' : 'Desbloqueio manual via admin'),\n      timestamp: new Date().toISOString()\n    }\n  });\n}\nreturn out;"
+      },
+      "id": "node_13_code-admin-toggle",
+      "name": "🔧 Code - Admin Toggle",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        460,
+        1900
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "search",
+        "base": {
+          "__rl": true,
+          "value": "appELEVEA",
+          "mode": "list"
+        },
+        "table": {
+          "__rl": true,
+          "value": "clients",
+          "mode": "list"
+        },
+        "filterByFormula": "=AND({siteSlug}='{{ $json.siteSlug }}')",
+        "options": {}
+      },
+      "id": "node_14_airtable-search-client-toggle",
+      "name": "🗄️ Airtable - Search Client Toggle",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [
+        660,
+        1900
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "base": {
+          "__rl": true,
+          "value": "appELEVEA",
+          "mode": "list"
+        },
+        "table": {
+          "__rl": true,
+          "value": "clients",
+          "mode": "list"
+        },
+        "id": "={{ $json.id }}",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldName": "status",
+              "fieldValue": "={{ $json.newStatus }}"
+            },
+            {
+              "fieldName": "manual_block",
+              "fieldValue": "={{ $json.isBlocking }}"
+            },
+            {
+              "fieldName": "block_reason",
+              "fieldValue": "={{ $json.reason }}"
+            },
+            {
+              "fieldName": "updated_at",
+              "fieldValue": "={{ new Date().toISOString() }}"
+            }
+          ]
+        }
+      },
+      "id": "node_15_airtable-update-client-toggle",
+      "name": "🗄️ Airtable - Update Client Toggle",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [
+        860,
+        1900
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Log audit da ação admin\nconst out = [];\nfor (const { json } of items) {\n  out.push({\n    json: {\n      siteSlug: json.siteSlug,\n      action: json.isBlocking ? 'client_blocked' : 'client_unblocked',\n      user_email: 'admin@elevea.com',\n      user_role: 'admin',\n      details: JSON.stringify({ reason: json.reason, newStatus: json.newStatus }),\n      severity: 'warning',\n      timestamp: new Date().toISOString()\n    }\n  });\n}\nreturn out;"
+      },
+      "id": "node_16_code-audit-admin-toggle",
+      "name": "📝 Code - Audit Admin Toggle",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1060,
+        1900
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "base": {
+          "__rl": true,
+          "value": "appELEVEA",
+          "mode": "list"
+        },
+        "table": {
+          "__rl": true,
+          "value": "audit_logs",
+          "mode": "list"
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldName": "site_slug",
+              "fieldValue": "={{ $json.siteSlug }}"
+            },
+            {
+              "fieldName": "action",
+              "fieldValue": "={{ $json.action }}"
+            },
+            {
+              "fieldName": "user_email",
+              "fieldValue": "={{ $json.user_email }}"
+            },
+            {
+              "fieldName": "user_role",
+              "fieldValue": "={{ $json.user_role }}"
+            },
+            {
+              "fieldName": "details",
+              "fieldValue": "={{ $json.details }}"
+            },
+            {
+              "fieldName": "severity",
+              "fieldValue": "={{ $json.severity }}"
+            }
+          ]
+        }
+      },
+      "id": "node_17_airtable-insert-audit-log",
+      "name": "🗄️ Airtable - Insert Audit Log",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [
+        1260,
+        1900
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { success: true, message: 'Status do cliente atualizado', siteSlug: $json.siteSlug, newStatus: $json.newStatus, timestamp: new Date().toISOString() } }}",
+        "options": {
+          "headers": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          }
+        }
+      },
+      "id": "node_18_respond-admin-toggle",
+      "name": "📤 Respond - Admin Toggle",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1460,
+        1900
+      ]
+    }
+  ],
+  "connections": {
+    "node_1_webhook-client-plan": {
+      "main": [
+        [
+          {
+            "node": "node_2_code-client-plan",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "node_6_respond-client-plan",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "node_2_code-client-plan": {
+      "main": [
+        [
+          {
+            "node": "node_3_airtable-search-client-plan",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "node_3_airtable-search-client-plan": {
+      "main": [
+        [
+          {
+            "node": "node_4_airtable-search-billing",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "node_4_airtable-search-billing": {
+      "main": [
+        [
+          {
+            "node": "node_5_code-process-client-plan",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "node_5_code-process-client-plan": {
+      "main": [
+        [
+          {
+            "node": "node_6_respond-client-plan",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "node_7_webhook-client-status": {
+      "main": [
+        [
+          {
+            "node": "node_8_code-client-status",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "node_11_respond-client-status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "node_8_code-client-status": {
+      "main": [
+        [
+          {
+            "node": "node_9_airtable-search-client-status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "node_9_airtable-search-client-status": {
+      "main": [
+        [
+          {
+            "node": "node_10_code-format-client-status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "node_10_code-format-client-status": {
+      "main": [
+        [
+          {
+            "node": "node_11_respond-client-status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "node_12_webhook-admin-toggle": {
+      "main": [
+        [
+          {
+            "node": "node_13_code-admin-toggle",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "node_18_respond-admin-toggle",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "node_13_code-admin-toggle": {
+      "main": [
+        [
+          {
+            "node": "node_14_airtable-search-client-toggle",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "node_14_airtable-search-client-toggle": {
+      "main": [
+        [
+          {
+            "node": "node_15_airtable-update-client-toggle",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "node_15_airtable-update-client-toggle": {
+      "main": [
+        [
+          {
+            "node": "node_16_code-audit-admin-toggle",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "node_16_code-audit-admin-toggle": {
+      "main": [
+        [
+          {
+            "node": "node_17_airtable-insert-audit-log",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "node_17_airtable-insert-audit-log": {
+      "main": [
+        [
+          {
+            "node": "node_18_respond-admin-toggle",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": [
+    "optimized",
+    "elevea",
+    "modular"
+  ]
+}

@@ -1,0 +1,164 @@
+{
+  "name": "templates_api_templates_list",
+  "description": "Workflow modular para api/templates/list - Módulo TEMPLATES",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "GET",
+        "path": "api/templates/list",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "webhook-templates-list",
+      "name": "🎨 Webhook - Templates List",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [
+        260,
+        8700
+      ],
+      "webhookId": "elevea-templates-list"
+    },
+    {
+      "parameters": {
+        "jsCode": "// FUNÇÃO: marketplace_templates (do GAS)\nconst out = [];\nfor (const { json } of items) {\n  const query = json.query || {};\n  const { category, plan } = query;\n  \n  out.push({\n    json: {\n      category: category || 'all',\n      plan: plan || 'all',\n      timestamp: new Date().toISOString()\n    }\n  });\n}\nreturn out;"
+      },
+      "id": "code-templates-list",
+      "name": "🎨 Code - Templates List",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        460,
+        8700
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "list",
+        "base": {
+          "__rl": true,
+          "value": "appELEVEA",
+          "mode": "list"
+        },
+        "table": {
+          "__rl": true,
+          "value": "site_templates",
+          "mode": "list"
+        },
+        "options": {
+          "sort": [
+            {
+              "field": "popularity",
+              "direction": "desc"
+            }
+          ]
+        }
+      },
+      "id": "airtable-list-templates",
+      "name": "🗄️ Airtable - List Templates",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [
+        660,
+        8700
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Formatar lista de templates\nconst out = [];\nconst templates = [];\n\nfor (const { json } of items) {\n  const fields = json.fields || {};\n  templates.push({\n    templateId: json.id,\n    name: fields.name,\n    description: fields.description,\n    category: fields.category,\n    previewUrl: fields.preview_url,\n    thumbnailUrl: fields.thumbnail_url,\n    requiredPlan: fields.required_plan || 'essential',\n    price: fields.price || 0,\n    isVipOnly: fields.required_plan === 'vip',\n    popularity: fields.popularity || 0,\n    tags: JSON.parse(fields.tags || '[]')\n  });\n}\n\nout.push({\n  json: {\n    success: true,\n    templates: templates,\n    count: templates.length,\n    timestamp: new Date().toISOString()\n  }\n});\nreturn out;"
+      },
+      "id": "code-format-templates-list",
+      "name": "🎨 Code - Format Templates List",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        860,
+        8700
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {
+          "headers": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          }
+        }
+      },
+      "id": "respond-templates-list",
+      "name": "📤 Respond - Templates List",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1060,
+        8700
+      ]
+    }
+  ],
+  "connections": {
+    "webhook-templates-list": {
+      "main": [
+        [
+          {
+            "node": "code-templates-list",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "respond-templates-list",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "code-templates-list": {
+      "main": [
+        [
+          {
+            "node": "airtable-list-templates",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "airtable-list-templates": {
+      "main": [
+        [
+          {
+            "node": "code-format-templates-list",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "code-format-templates-list": {
+      "main": [
+        [
+          {
+            "node": "respond-templates-list",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": [
+    "modular",
+    "elevea",
+    "templates"
+  ]
+}

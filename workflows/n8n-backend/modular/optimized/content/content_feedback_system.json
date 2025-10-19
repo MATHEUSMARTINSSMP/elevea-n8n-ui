@@ -1,0 +1,509 @@
+{
+  "name": "content_feedback_system",
+  "description": "Sistema completo de feedbacks",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "api/feedback/submit",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "node_1_webhook-feedback-submit",
+      "name": "💬 Webhook - Feedback Submit",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [
+        260,
+        3900
+      ],
+      "webhookId": "elevea-feedback-submit"
+    },
+    {
+      "parameters": {
+        "jsCode": "// FUNÇÃO: feedback (do GAS)\nconst out = [];\nfor (const { json } of items) {\n  const { siteSlug, clientName, clientEmail, rating, comment } = json.body || {};\n  \n  if (!siteSlug || !clientName || !rating) {\n    out.push({\n      json: {\n        success: false,\n        error: 'siteSlug, clientName e rating são obrigatórios',\n        timestamp: new Date().toISOString()\n      }\n    });\n    continue;\n  }\n  \n  if (rating < 1 || rating > 5) {\n    out.push({\n      json: {\n        success: false,\n        error: 'rating deve ser entre 1 e 5',\n        timestamp: new Date().toISOString()\n      }\n    });\n    continue;\n  }\n  \n  out.push({\n    json: {\n      siteSlug,\n      clientName,\n      clientEmail: clientEmail || null,\n      rating,\n      comment: comment || '',\n      status: 'pending',\n      timestamp: new Date().toISOString()\n    }\n  });\n}\nreturn out;"
+      },
+      "id": "node_2_code-feedback-submit",
+      "name": "💬 Code - Feedback Submit",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        460,
+        3900
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "base": {
+          "__rl": true,
+          "value": "appELEVEA",
+          "mode": "list"
+        },
+        "table": {
+          "__rl": true,
+          "value": "feedbacks",
+          "mode": "list"
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldName": "site_slug",
+              "fieldValue": "={{ $json.siteSlug }}"
+            },
+            {
+              "fieldName": "client_name",
+              "fieldValue": "={{ $json.clientName }}"
+            },
+            {
+              "fieldName": "client_email",
+              "fieldValue": "={{ $json.clientEmail }}"
+            },
+            {
+              "fieldName": "rating",
+              "fieldValue": "={{ $json.rating }}"
+            },
+            {
+              "fieldName": "comment",
+              "fieldValue": "={{ $json.comment }}"
+            },
+            {
+              "fieldName": "status",
+              "fieldValue": "pending"
+            }
+          ]
+        }
+      },
+      "id": "node_3_airtable-insert-feedback",
+      "name": "🗄️ Airtable - Insert Feedback",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [
+        660,
+        3900
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { success: true, message: 'Feedback enviado com sucesso! Obrigado pela avaliação.', timestamp: new Date().toISOString() } }}",
+        "options": {
+          "headers": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          }
+        }
+      },
+      "id": "node_4_respond-feedback-submit",
+      "name": "📤 Respond - Feedback Submit",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        860,
+        3900
+      ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "GET",
+        "path": "api/feedback/list",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "node_5_webhook-feedback-list",
+      "name": "💬 Webhook - Feedback List",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [
+        260,
+        4100
+      ],
+      "webhookId": "elevea-feedback-list"
+    },
+    {
+      "parameters": {
+        "jsCode": "// FUNÇÃO: list_feedbacks_secure (do GAS)\nconst out = [];\nfor (const { json } of items) {\n  const query = json.query || {};\n  const { siteSlug, status } = query;\n  \n  out.push({\n    json: {\n      siteSlug: siteSlug || 'all',\n      status: status || 'all',\n      timestamp: new Date().toISOString()\n    }\n  });\n}\nreturn out;"
+      },
+      "id": "node_6_code-feedback-list",
+      "name": "💬 Code - Feedback List",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        460,
+        4100
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "list",
+        "base": {
+          "__rl": true,
+          "value": "appELEVEA",
+          "mode": "list"
+        },
+        "table": {
+          "__rl": true,
+          "value": "feedbacks",
+          "mode": "list"
+        },
+        "options": {
+          "sort": [
+            {
+              "field": "created_at",
+              "direction": "desc"
+            }
+          ]
+        }
+      },
+      "id": "node_7_airtable-list-feedbacks",
+      "name": "🗄️ Airtable - List Feedbacks",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [
+        660,
+        4100
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Formatar lista de feedbacks\nconst out = [];\nconst feedbacks = [];\n\nfor (const { json } of items) {\n  const fields = json.fields || {};\n  feedbacks.push({\n    feedbackId: json.id,\n    siteSlug: fields.site_slug,\n    clientName: fields.client_name,\n    clientEmail: fields.client_email,\n    rating: fields.rating,\n    comment: fields.comment,\n    status: fields.status,\n    approvedBy: fields.approved_by,\n    approvedAt: fields.approved_at,\n    published: fields.published,\n    createdAt: fields.created_at\n  });\n}\n\nout.push({\n  json: {\n    success: true,\n    feedbacks: feedbacks,\n    count: feedbacks.length,\n    averageRating: feedbacks.reduce((sum, f) => sum + f.rating, 0) / feedbacks.length || 0,\n    timestamp: new Date().toISOString()\n  }\n});\nreturn out;"
+      },
+      "id": "node_8_code-format-feedbacks-list",
+      "name": "💬 Code - Format Feedbacks List",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        860,
+        4100
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {
+          "headers": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          }
+        }
+      },
+      "id": "node_9_respond-feedback-list",
+      "name": "📤 Respond - Feedback List",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1060,
+        4100
+      ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "api/feedback/approve",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "node_10_webhook-feedback-approve",
+      "name": "💬 Webhook - Feedback Approve",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [
+        260,
+        4300
+      ],
+      "webhookId": "elevea-feedback-approve"
+    },
+    {
+      "parameters": {
+        "jsCode": "// FUNÇÃO: feedback_set_approval (do GAS)\nconst out = [];\nfor (const { json } of items) {\n  const { feedbackId, approve, adminEmail } = json.body || {};\n  \n  if (!feedbackId) {\n    out.push({\n      json: {\n        success: false,\n        error: 'feedbackId é obrigatório',\n        timestamp: new Date().toISOString()\n      }\n    });\n    continue;\n  }\n  \n  const newStatus = approve ? 'approved' : 'rejected';\n  \n  out.push({\n    json: {\n      feedbackId,\n      newStatus,\n      approvedBy: adminEmail || 'admin@elevea.com',\n      approvedAt: new Date().toISOString(),\n      shouldPublish: approve,\n      timestamp: new Date().toISOString()\n    }\n  });\n}\nreturn out;"
+      },
+      "id": "node_11_code-feedback-approve",
+      "name": "💬 Code - Feedback Approve",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        460,
+        4300
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "base": {
+          "__rl": true,
+          "value": "appELEVEA",
+          "mode": "list"
+        },
+        "table": {
+          "__rl": true,
+          "value": "feedbacks",
+          "mode": "list"
+        },
+        "id": "={{ $json.feedbackId }}",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldName": "status",
+              "fieldValue": "={{ $json.newStatus }}"
+            },
+            {
+              "fieldName": "approved_by",
+              "fieldValue": "={{ $json.approvedBy }}"
+            },
+            {
+              "fieldName": "approved_at",
+              "fieldValue": "={{ $json.approvedAt }}"
+            },
+            {
+              "fieldName": "published",
+              "fieldValue": "={{ $json.shouldPublish }}"
+            }
+          ]
+        }
+      },
+      "id": "node_12_airtable-update-feedback-approval",
+      "name": "🗄️ Airtable - Update Feedback Approval",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [
+        660,
+        4300
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json.shouldPublish }}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "node_13_if-should-publish-feedback",
+      "name": "🔀 IF - Should Publish Feedback",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        860,
+        4300
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://api.netlify.com/build_hooks/{{ $env.NETLIFY_BUILD_HOOK }}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ {\n  \"trigger_title\": \"Feedback aprovado e publicado\",\n  \"trigger_branch\": \"main\"\n} }}",
+        "options": {}
+      },
+      "id": "node_14_http-netlify-publish-feedback",
+      "name": "🏗️ HTTP - Netlify Publish Feedback",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1060,
+        4200
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { success: true, message: 'Feedback aprovado', feedbackId: $json.feedbackId, published: $json.shouldPublish, timestamp: new Date().toISOString() } }}",
+        "options": {
+          "headers": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          }
+        }
+      },
+      "id": "node_15_respond-feedback-approve",
+      "name": "📤 Respond - Feedback Approve",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1260,
+        4300
+      ]
+    }
+  ],
+  "connections": {
+    "node_1_webhook-feedback-submit": {
+      "main": [
+        [
+          {
+            "node": "node_2_code-feedback-submit",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "node_4_respond-feedback-submit",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "node_2_code-feedback-submit": {
+      "main": [
+        [
+          {
+            "node": "node_3_airtable-insert-feedback",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "node_3_airtable-insert-feedback": {
+      "main": [
+        [
+          {
+            "node": "node_4_respond-feedback-submit",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "node_5_webhook-feedback-list": {
+      "main": [
+        [
+          {
+            "node": "node_6_code-feedback-list",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "node_9_respond-feedback-list",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "node_6_code-feedback-list": {
+      "main": [
+        [
+          {
+            "node": "node_7_airtable-list-feedbacks",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "node_7_airtable-list-feedbacks": {
+      "main": [
+        [
+          {
+            "node": "node_8_code-format-feedbacks-list",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "node_8_code-format-feedbacks-list": {
+      "main": [
+        [
+          {
+            "node": "node_9_respond-feedback-list",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "node_10_webhook-feedback-approve": {
+      "main": [
+        [
+          {
+            "node": "node_11_code-feedback-approve",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "node_15_respond-feedback-approve",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "node_11_code-feedback-approve": {
+      "main": [
+        [
+          {
+            "node": "node_12_airtable-update-feedback-approval",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "node_12_airtable-update-feedback-approval": {
+      "main": [
+        [
+          {
+            "node": "node_13_if-should-publish-feedback",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "node_13_if-should-publish-feedback": {
+      "main": [
+        [
+          {
+            "node": "node_14_http-netlify-publish-feedback",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "node_15_respond-feedback-approve",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "node_14_http-netlify-publish-feedback": {
+      "main": [
+        [
+          {
+            "node": "node_15_respond-feedback-approve",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": [
+    "optimized",
+    "elevea",
+    "modular"
+  ]
+}

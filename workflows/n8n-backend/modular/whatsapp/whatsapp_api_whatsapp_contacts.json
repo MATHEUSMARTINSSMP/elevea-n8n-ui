@@ -1,0 +1,176 @@
+{
+  "name": "whatsapp_api_whatsapp_contacts",
+  "description": "Workflow modular para api/whatsapp/contacts - Módulo WHATSAPP",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "api/whatsapp/contacts",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "webhook-wa-contacts-list",
+      "name": "📱 Webhook - WhatsApp Contacts List",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [
+        260,
+        11000
+      ],
+      "webhookId": "elevea-wa-contacts-list"
+    },
+    {
+      "parameters": {
+        "jsCode": "// FUNÇÃO: wa_list_contacts (do GAS linha 1086)\nconst out = [];\nfor (const { json } of items) {\n  const { site, siteSlug, page = 1, pageSize = 20, filters = {} } = json.body || {};\n  const normalizedSite = (site || siteSlug || '').toUpperCase();\n  \n  if (!normalizedSite) {\n    out.push({\n      json: {\n        success: false,\n        error: 'Site é obrigatório',\n        timestamp: new Date().toISOString()\n      }\n    });\n    continue;\n  }\n  \n  out.push({\n    json: {\n      siteSlug: normalizedSite,\n      page: Math.max(1, parseInt(page)),\n      pageSize: Math.min(100, Math.max(1, parseInt(pageSize))),\n      filters: filters,\n      searchFormula: `AND({siteSlug}='${normalizedSite}', {ativo}=TRUE())`,\n      timestamp: new Date().toISOString()\n    }\n  });\n}\nreturn out;"
+      },
+      "id": "code-wa-contacts-prepare",
+      "name": "📝 Code - Prepare Contacts Query",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        460,
+        11000
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "list",
+        "base": {
+          "__rl": true,
+          "value": "appELEVEA",
+          "mode": "list"
+        },
+        "table": {
+          "__rl": true,
+          "value": "whatsapp_contacts",
+          "mode": "list"
+        },
+        "returnAll": false,
+        "limit": 1000,
+        "options": {
+          "filterByFormula": "={{ $json.searchFormula }}"
+        }
+      },
+      "id": "airtable-list-wa-contacts",
+      "name": "🗄️ Airtable - List WA Contacts",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [
+        660,
+        11000
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Paginar e formatar contatos (baseado no GAS linha 1103)\nconst out = [];\nconst inputNode = $node['Code - Prepare Contacts Query'].json;\nconst page = inputNode.page || 1;\nconst pageSize = inputNode.pageSize || 20;\nconst filters = inputNode.filters || {};\n\nlet contacts = items.map(i => i.json.fields || i.json);\n\n// Aplicar filtros adicionais\nif (filters.nome) {\n  contacts = contacts.filter(c => (c.nome || '').toLowerCase().includes(filters.nome.toLowerCase()));\n}\nif (filters.empresa) {\n  contacts = contacts.filter(c => (c.empresa || '').toLowerCase().includes(filters.empresa.toLowerCase()));\n}\nif (filters.tags) {\n  contacts = contacts.filter(c => (c.tags || '').includes(filters.tags));\n}\n\n// Ordenar por data de criação (mais recente primeiro)\ncontacts.sort((a, b) => new Date(b.criado_em || 0) - new Date(a.criado_em || 0));\n\n// Paginar\nconst total = contacts.length;\nconst start = (page - 1) * pageSize;\nconst paginatedContacts = contacts.slice(start, start + pageSize);\n\nout.push({\n  json: {\n    success: true,\n    data: {\n      contacts: paginatedContacts,\n      total: total,\n      page: page,\n      pageSize: pageSize,\n      hasMore: start + pageSize < total\n    },\n    timestamp: new Date().toISOString()\n  }\n});\nreturn out;"
+      },
+      "id": "code-wa-contacts-paginate",
+      "name": "📊 Code - Paginate Contacts",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        860,
+        11000
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {
+          "headers": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          }
+        }
+      },
+      "id": "respond-wa-contacts-list",
+      "name": "📤 Respond - WA Contacts List",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1060,
+        11000
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { success: true, message: '📱 Webhook - WhatsApp Contacts List processado', timestamp: new Date().toISOString() } }}",
+        "options": {}
+      },
+      "id": "respond-webhook-wa-contacts-list",
+      "name": "📤 Respond - WhatsApp Contacts List",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        800,
+        100
+      ]
+    }
+  ],
+  "connections": {
+    "webhook-wa-contacts-list": {
+      "main": [
+        [
+          {
+            "node": "code-wa-contacts-prepare",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "respond-webhook-wa-contacts-list",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "code-wa-contacts-prepare": {
+      "main": [
+        [
+          {
+            "node": "airtable-list-wa-contacts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "airtable-list-wa-contacts": {
+      "main": [
+        [
+          {
+            "node": "code-wa-contacts-paginate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "code-wa-contacts-paginate": {
+      "main": [
+        [
+          {
+            "node": "respond-wa-contacts-list",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": [
+    "modular",
+    "elevea",
+    "whatsapp"
+  ]
+}

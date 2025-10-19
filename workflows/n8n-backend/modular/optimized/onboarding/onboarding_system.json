@@ -1,0 +1,368 @@
+{
+  "name": "onboarding_system",
+  "description": "Sistema de onboarding",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "api/onboarding/save",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "node_1_webhook-onboarding-save",
+      "name": "📝 Webhook - Onboarding Save",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [
+        260,
+        5300
+      ],
+      "webhookId": "elevea-onboarding-save"
+    },
+    {
+      "parameters": {
+        "jsCode": "// FUNÇÃO: save_onboarding / onboarding / cadastro (do GAS)\nconst out = [];\nfor (const { json } of items) {\n  const { siteSlug, businessName, businessType, description, targetAudience, colors, logoUrl, imagesUrls, socialLinks, contactInfo } = json.body || {};\n  \n  if (!siteSlug || !businessName || !businessType) {\n    out.push({\n      json: {\n        success: false,\n        error: 'siteSlug, businessName e businessType são obrigatórios',\n        timestamp: new Date().toISOString()\n      }\n    });\n    continue;\n  }\n  \n  out.push({\n    json: {\n      siteSlug,\n      businessName,\n      businessType,\n      businessDescription: description || '',\n      targetAudience: targetAudience || '',\n      colors: JSON.stringify(colors || ['#007bff', '#28a745']),\n      logoUrl: logoUrl || '',\n      imagesUrls: JSON.stringify(imagesUrls || []),\n      socialLinks: JSON.stringify(socialLinks || {}),\n      contactInfo: JSON.stringify(contactInfo || {}),\n      status: 'pending',\n      timestamp: new Date().toISOString()\n    }\n  });\n}\nreturn out;"
+      },
+      "id": "node_2_code-onboarding-save",
+      "name": "📝 Code - Onboarding Save",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        460,
+        5300
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "base": {
+          "__rl": true,
+          "value": "appELEVEA",
+          "mode": "list"
+        },
+        "table": {
+          "__rl": true,
+          "value": "onboardings",
+          "mode": "list"
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldName": "site_slug",
+              "fieldValue": "={{ $json.siteSlug }}"
+            },
+            {
+              "fieldName": "business_name",
+              "fieldValue": "={{ $json.businessName }}"
+            },
+            {
+              "fieldName": "business_type",
+              "fieldValue": "={{ $json.businessType }}"
+            },
+            {
+              "fieldName": "business_description",
+              "fieldValue": "={{ $json.businessDescription }}"
+            },
+            {
+              "fieldName": "target_audience",
+              "fieldValue": "={{ $json.targetAudience }}"
+            },
+            {
+              "fieldName": "colors",
+              "fieldValue": "={{ $json.colors }}"
+            },
+            {
+              "fieldName": "logo_url",
+              "fieldValue": "={{ $json.logoUrl }}"
+            },
+            {
+              "fieldName": "images_urls",
+              "fieldValue": "={{ $json.imagesUrls }}"
+            },
+            {
+              "fieldName": "social_links",
+              "fieldValue": "={{ $json.socialLinks }}"
+            },
+            {
+              "fieldName": "contact_info",
+              "fieldValue": "={{ $json.contactInfo }}"
+            },
+            {
+              "fieldName": "status",
+              "fieldValue": "pending"
+            }
+          ]
+        }
+      },
+      "id": "node_3_airtable-insert-onboarding",
+      "name": "🗄️ Airtable - Insert Onboarding",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [
+        660,
+        5300
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { success: true, message: 'Onboarding salvo com sucesso!', siteSlug: $json.siteSlug, timestamp: new Date().toISOString() } }}",
+        "options": {
+          "headers": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          }
+        }
+      },
+      "id": "node_4_respond-onboarding-save",
+      "name": "📤 Respond - Onboarding Save",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        860,
+        5300
+      ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "api/onboarding/prompt",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "node_5_webhook-onboarding-prompt",
+      "name": "📝 Webhook - Onboarding Prompt",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [
+        260,
+        5500
+      ],
+      "webhookId": "elevea-onboarding-prompt"
+    },
+    {
+      "parameters": {
+        "jsCode": "// FUNÇÃO: generate_prompt (do GAS)\nconst out = [];\nfor (const { json } of items) {\n  const { siteSlug } = json.body || {};\n  \n  if (!siteSlug) {\n    out.push({\n      json: {\n        success: false,\n        error: 'siteSlug é obrigatório',\n        timestamp: new Date().toISOString()\n      }\n    });\n    continue;\n  }\n  \n  out.push({ json: { siteSlug, timestamp: new Date().toISOString() } });\n}\nreturn out;"
+      },
+      "id": "node_6_code-onboarding-prompt",
+      "name": "📝 Code - Onboarding Prompt",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        460,
+        5500
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "search",
+        "base": {
+          "__rl": true,
+          "value": "appELEVEA",
+          "mode": "list"
+        },
+        "table": {
+          "__rl": true,
+          "value": "onboardings",
+          "mode": "list"
+        },
+        "filterByFormula": "=AND({siteSlug}='{{ $json.siteSlug }}')",
+        "options": {}
+      },
+      "id": "node_7_airtable-search-onboarding",
+      "name": "🗄️ Airtable - Search Onboarding",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [
+        660,
+        5500
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Gerar prompt para Lovable AI\nconst out = [];\nfor (const { json } of items) {\n  const fields = json.fields || {};\n  const colors = JSON.parse(fields.colors || '[\"#007bff\", \"#28a745\"]');\n  const socialLinks = JSON.parse(fields.social_links || '{}');\n  const contactInfo = JSON.parse(fields.contact_info || '{}');\n  \n  const prompt = `Crie um site moderno, responsivo e profissional para ${fields.business_name}.\n\n**Tipo de negócio:** ${fields.business_type}\n**Descrição:** ${fields.business_description}\n**Público-alvo:** ${fields.target_audience}\n**Cores principais:** ${colors.join(', ')}\n\nO site deve incluir:\n\n1. **Hero Section**\n   - Título impactante sobre o negócio\n   - Subtítulo descritivo\n   - CTA (Call-to-Action) claro\n   - Imagem de destaque\n\n2. **Seção Sobre**\n   - História do negócio\n   - Missão e valores\n   - Diferenciais\n\n3. **Serviços/Produtos**\n   - Grid com cards\n   - Descrições claras\n   - Imagens relevantes\n\n4. **Depoimentos**\n   - Reviews de clientes\n   - Sistema de avaliação por estrelas\n\n5. **Contato**\n   - Formulário de contato\n   - Informações de contato: ${JSON.stringify(contactInfo)}\n   - Mapa (se endereço fornecido)\n   - Botão WhatsApp flutuante\n\n6. **Redes Sociais**\n   - Links: ${JSON.stringify(socialLinks)}\n\n7. **SEO**\n   - Meta tags otimizadas\n   - Sitemap\n   - Schema.org markup\n\n8. **Integrações**\n   - Google My Business\n   - Google Analytics\n   - WhatsApp\n   - Formulário de feedback\n\n**Estilo:**\n- Design limpo e moderno\n- Mobile-first\n- Acessível (WCAG 2.1)\n- Performance otimizada\n- Cores: ${colors[0]} (primary), ${colors[1]} (secondary)\n\nUse React, Vite, Tailwind CSS e shadcn/ui.`;\n\n  out.push({\n    json: {\n      success: true,\n      siteSlug: fields.site_slug,\n      prompt: prompt,\n      promptGenerated: true,\n      timestamp: new Date().toISOString()\n    }\n  });\n}\nreturn out;"
+      },
+      "id": "node_8_code-generate-prompt",
+      "name": "📝 Code - Generate Prompt",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        860,
+        5500
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "base": {
+          "__rl": true,
+          "value": "appELEVEA",
+          "mode": "list"
+        },
+        "table": {
+          "__rl": true,
+          "value": "onboardings",
+          "mode": "list"
+        },
+        "id": "={{ $json.id }}",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldName": "prompt_generated",
+              "fieldValue": "={{ $json.prompt }}"
+            },
+            {
+              "fieldName": "status",
+              "fieldValue": "in_progress"
+            }
+          ]
+        }
+      },
+      "id": "node_9_airtable-update-onboarding-prompt",
+      "name": "🗄️ Airtable - Update Onboarding Prompt",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [
+        1060,
+        5500
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { success: true, prompt: $json.prompt, siteSlug: $json.siteSlug, timestamp: new Date().toISOString() } }}",
+        "options": {
+          "headers": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          }
+        }
+      },
+      "id": "node_10_respond-onboarding-prompt",
+      "name": "📤 Respond - Onboarding Prompt",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1260,
+        5500
+      ]
+    }
+  ],
+  "connections": {
+    "node_1_webhook-onboarding-save": {
+      "main": [
+        [
+          {
+            "node": "node_2_code-onboarding-save",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "node_4_respond-onboarding-save",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "node_2_code-onboarding-save": {
+      "main": [
+        [
+          {
+            "node": "node_3_airtable-insert-onboarding",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "node_3_airtable-insert-onboarding": {
+      "main": [
+        [
+          {
+            "node": "node_4_respond-onboarding-save",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "node_5_webhook-onboarding-prompt": {
+      "main": [
+        [
+          {
+            "node": "node_6_code-onboarding-prompt",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "node_10_respond-onboarding-prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "node_6_code-onboarding-prompt": {
+      "main": [
+        [
+          {
+            "node": "node_7_airtable-search-onboarding",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "node_7_airtable-search-onboarding": {
+      "main": [
+        [
+          {
+            "node": "node_8_code-generate-prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "node_8_code-generate-prompt": {
+      "main": [
+        [
+          {
+            "node": "node_9_airtable-update-onboarding-prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "node_9_airtable-update-onboarding-prompt": {
+      "main": [
+        [
+          {
+            "node": "node_10_respond-onboarding-prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": [
+    "optimized",
+    "elevea",
+    "modular"
+  ]
+}

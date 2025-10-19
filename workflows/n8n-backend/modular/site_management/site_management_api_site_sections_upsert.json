@@ -1,0 +1,181 @@
+{
+  "name": "site_management_api_site_sections_upsert",
+  "description": "Workflow modular para api/site/sections/upsert - Módulo SITE_MANAGEMENT",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "api/site/sections/upsert",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "webhook-sections-upsert",
+      "name": "📑 Webhook - Sections Upsert",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [
+        260,
+        7700
+      ],
+      "webhookId": "elevea-sections-upsert"
+    },
+    {
+      "parameters": {
+        "jsCode": "// FUNÇÃO: sections_upsert_defs (do GAS)\nconst out = [];\nfor (const { json } of items) {\n  const { siteSlug, sectionDefs } = json.body || {};\n  \n  if (!siteSlug || !sectionDefs) {\n    out.push({\n      json: {\n        success: false,\n        error: 'siteSlug e sectionDefs são obrigatórios',\n        timestamp: new Date().toISOString()\n      }\n    });\n    continue;\n  }\n  \n  out.push({\n    json: {\n      siteSlug,\n      sectionDefs: JSON.stringify(sectionDefs),\n      timestamp: new Date().toISOString()\n    }\n  });\n}\nreturn out;"
+      },
+      "id": "code-sections-upsert",
+      "name": "📑 Code - Sections Upsert",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        460,
+        7700
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "search",
+        "base": {
+          "__rl": true,
+          "value": "appELEVEA",
+          "mode": "list"
+        },
+        "table": {
+          "__rl": true,
+          "value": "site_structures",
+          "mode": "list"
+        },
+        "filterByFormula": "=AND({siteSlug}='{{ $json.siteSlug }}')",
+        "options": {}
+      },
+      "id": "airtable-search-site-for-sections",
+      "name": "🗄️ Airtable - Search Site For Sections",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [
+        660,
+        7700
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "base": {
+          "__rl": true,
+          "value": "appELEVEA",
+          "mode": "list"
+        },
+        "table": {
+          "__rl": true,
+          "value": "site_structures",
+          "mode": "list"
+        },
+        "id": "={{ $json.id }}",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldName": "sections",
+              "fieldValue": "={{ $json.sectionDefs }}"
+            },
+            {
+              "fieldName": "updated_at",
+              "fieldValue": "={{ new Date().toISOString() }}"
+            }
+          ]
+        }
+      },
+      "id": "airtable-update-sections",
+      "name": "🗄️ Airtable - Update Sections",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [
+        860,
+        7700
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { success: true, message: 'Seções atualizadas', siteSlug: $json.siteSlug, timestamp: new Date().toISOString() } }}",
+        "options": {
+          "headers": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          }
+        }
+      },
+      "id": "respond-sections-upsert",
+      "name": "📤 Respond - Sections Upsert",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1060,
+        7700
+      ]
+    }
+  ],
+  "connections": {
+    "webhook-sections-upsert": {
+      "main": [
+        [
+          {
+            "node": "code-sections-upsert",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "respond-sections-upsert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "code-sections-upsert": {
+      "main": [
+        [
+          {
+            "node": "airtable-search-site-for-sections",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "airtable-search-site-for-sections": {
+      "main": [
+        [
+          {
+            "node": "airtable-update-sections",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "airtable-update-sections": {
+      "main": [
+        [
+          {
+            "node": "respond-sections-upsert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": [
+    "modular",
+    "elevea",
+    "site_management"
+  ]
+}

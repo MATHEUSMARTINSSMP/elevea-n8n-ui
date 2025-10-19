@@ -1,0 +1,89 @@
+{
+  "name": "whatsapp_api_whatsapp_webhook_verify",
+  "description": "Workflow modular para api/whatsapp/webhook/verify - Módulo WHATSAPP",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "GET",
+        "path": "api/whatsapp/webhook/verify",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "webhook-wa-verify",
+      "name": "📱 Webhook - WA Verify",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [
+        260,
+        2300
+      ],
+      "webhookId": "elevea-wa-verify"
+    },
+    {
+      "parameters": {
+        "jsCode": "// FUNÇÃO: wa_webhook_verify (do GAS)\nconst out = [];\nfor (const { json } of items) {\n  const query = json.query || {};\n  const mode = query['hub.mode'];\n  const token = query['hub.verify_token'];\n  const challenge = query['hub.challenge'];\n  \n  if (mode === 'subscribe' && token === 'ELEVEA_VERIFY_TOKEN') {\n    out.push({\n      json: {\n        success: true,\n        challenge: challenge,\n        verified: true\n      }\n    });\n  } else {\n    out.push({\n      json: {\n        success: false,\n        error: 'Verification failed'\n      }\n    });\n  }\n}\nreturn out;"
+      },
+      "id": "code-wa-verify",
+      "name": "📱 Code - WA Verify",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        460,
+        2300
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json.challenge || { success: false } }}",
+        "options": {}
+      },
+      "id": "respond-wa-verify",
+      "name": "📤 Respond - WA Verify",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        660,
+        2300
+      ]
+    }
+  ],
+  "connections": {
+    "webhook-wa-verify": {
+      "main": [
+        [
+          {
+            "node": "code-wa-verify",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "respond-wa-verify",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "code-wa-verify": {
+      "main": [
+        [
+          {
+            "node": "respond-wa-verify",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": [
+    "modular",
+    "elevea",
+    "whatsapp"
+  ]
+}

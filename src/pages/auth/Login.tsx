@@ -1,203 +1,113 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useState } from 'react';
+import { LoginForm } from '../../components/auth/LoginForm';
+import { ResetPasswordForm } from '../../components/auth/ResetPasswordForm';
+import { Button } from '../../components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card';
+import { Badge } from '../../components/ui/badge';
+import { ArrowLeft, Sparkles } from 'lucide-react';
 
-const AUTH_BASE = "/.netlify/functions/auth-session";
-const LOGIN_URL = `${AUTH_BASE}?action=login`;
-const ME_URL    = `${AUTH_BASE}?action=me`;   // usaremos GET com ?email=...
+export const Login: React.FC = () => {
+  const [showResetPassword, setShowResetPassword] = useState(false);
+  const [showUpgrade, setShowUpgrade] = useState(false);
 
-const RESET_URL = "/.netlify/functions/reset-dispatch";
+  const handleLoginSuccess = () => {
+    // Redirect to dashboard or home page
+    window.location.href = '/dashboard';
+  };
 
-type ApiResp = {
-  ok?: boolean;
-  error?: string;
-  message?: string;
-  user?: { email: string; role: "admin" | "client"; siteSlug?: string };
-};
-
-export default function LoginPage() {
-  const [email, setEmail] = useState("");
-  const [pass,  setPass]  = useState("");
-  const [loading, setLoading] = useState(false);
-  const [msg, setMsg]   = useState<string | null>(null);
-  const [err, setErr]   = useState<string | null>(null);
-
-  const [forgotOpen, setForgotOpen]   = useState(false);
-  const [forgotEmail, setForgotEmail] = useState("");
-  const [forgotLoading, setForgotLoading] = useState(false);
-
-  const next = useMemo(() => {
-    try {
-      const p = new URLSearchParams(window.location.search);
-      const n = p.get("next") || "";
-      return n.startsWith("/") ? n : "";
-    } catch { return ""; }
-  }, []);
-
-  useEffect(() => {
-    (async () => {
-      try {
-        // Se você tiver o e-mail salvo em localStorage, dá pra passar aqui.
-        const current = window.localStorage.getItem("elevea_last_email") || "";
-        if (!current) return;
-
-        const r = await fetch(`${ME_URL}&email=${encodeURIComponent(current)}`, {
-          method: "GET",
-          cache: "no-store",
-        });
-        const data: ApiResp = await r.json().catch(() => ({} as any));
-        if (data?.ok && data.user) redirectByRole(data.user.role, next);
-      } catch {/* ignore */}
-    })();
-  }, [next]);
-
-  function redirectByRole(role: "admin" | "client", candidate?: string) {
-    if (candidate) {
-      if (role === "admin"  && candidate.startsWith("/admin/"))  return void window.location.assign(candidate);
-      if (role === "client" && candidate.startsWith("/client/")) return void window.location.assign(candidate);
-    }
-    window.location.assign(role === "admin" ? "/admin/dashboard" : "/client/dashboard");
-  }
-
-  async function doLogin(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    setErr(null); setMsg(null); setLoading(true);
-
-    try {
-      const emailLc = email.trim().toLowerCase();
-
-      const r = await fetch(LOGIN_URL, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        // Enviamos o action também no body como fallback
-        body: JSON.stringify({ action: "login", email: emailLc, password: pass }),
-      });
-
-      if (r.status >= 500) {
-        const txt = await r.text().catch(() => "");
-        setErr(`Servidor indisponível (${r.status}). ${txt || ""}`.trim());
-        return;
-      }
-
-      const data: ApiResp = await r.json().catch(() => ({} as any));
-      if (!r.ok || data.ok === false) {
-        setErr(data.error || data.message || `Falha no login (${r.status})`);
-        return;
-      }
-      if (!data.user?.role) {
-        setErr("Resposta inválida do servidor.");
-        return;
-      }
-
-      // guarda último e-mail para o “me”
-      try { window.localStorage.setItem("elevea_last_email", emailLc); } catch {}
-
-      redirectByRole(data.user.role, next);
-    } catch (e: any) {
-      setErr(e?.message || "Erro de rede");
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  async function handleSendReset(emailIn: string): Promise<{ ok: boolean; error?: string }> {
-    try {
-      const email = emailIn.trim().toLowerCase();
-      if (!email || !/^\S+@\S+\.\S+$/.test(email)) return { ok:false, error:"email_invalido" };
-
-      setForgotLoading(true);
-      const r = await fetch(RESET_URL, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email }),
-      });
-      const data: ApiResp = await r.json().catch(() => ({} as any));
-      setForgotLoading(false);
-
-      if (!r.ok || data?.ok === false) return { ok:false, error: data?.error || data?.message || `http_${r.status}` };
-      return { ok:true };
-    } catch (e: any) {
-      setForgotLoading(false);
-      return { ok:false, error:String(e?.message || e) };
-    }
-  }
-
-  async function doForgot(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    setErr(null); setMsg(null);
-    const res = await handleSendReset(forgotEmail);
-    if (!res.ok) { setErr(res.error || "Falha ao enviar o link"); return; }
-    setMsg("Se o e-mail existir, enviamos um link de redefinição.");
-    setForgotOpen(false);
-  }
+  const handleResetSuccess = () => {
+    setShowResetPassword(false);
+  };
 
   return (
-    <div className="min-h-screen bg-gray-100 flex items-center justify-center p-3 sm:p-6">
-      <div className="w-full max-w-md bg-white rounded-2xl shadow p-4 sm:p-8">
-        <h1 className="text-xl sm:text-2xl font-bold mb-4 sm:mb-6">Entrar</h1>
-
-        <form className="form-mobile" onSubmit={doLogin}>
-          <input
-            type="email"
-            placeholder="E-mail"
-            value={email}
-            onChange={(e)=>setEmail(e.target.value)}
-            className="form-input-mobile w-full border rounded-xl"
-            autoComplete="username"
-            required
-          />
-          <input
-            type="password"
-            placeholder="Senha"
-            value={pass}
-            onChange={(e)=>setPass(e.target.value)}
-            className="form-input-mobile w-full border rounded-xl"
-            autoComplete="current-password"
-            required
-          />
-          <button
-            type="submit"
-            disabled={loading}
-            className="btn-mobile w-full bg-black text-white rounded-xl hover:bg-gray-800"
-          >
-            {loading ? "Entrando..." : "Entrar"}
-          </button>
-        </form>
-
-        <div className="mt-4 text-sm">
-          <button className="text-blue-600 underline" onClick={()=>setForgotOpen(true)}>
-            Esqueci a senha
-          </button>
-        </div>
-
-        {err && <div className="mt-4 text-red-600 whitespace-pre-wrap">{err}</div>}
-        {msg && <div className="mt-4 text-green-600 break-words">{msg}</div>}
-      </div>
-
-      {forgotOpen && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center">
-          <div className="bg-white w-full max-w-md rounded-xl shadow p-6">
-            <h2 className="text-xl font-semibold mb-4">Reset de Senha</h2>
-            <form className="space-y-4" onSubmit={doForgot}>
-              <input
-                type="email"
-                placeholder="E-mail"
-                value={forgotEmail}
-                onChange={(e)=>setForgotEmail(e.target.value)}
-                className="w-full border rounded-xl px-4 py-3"
-                required
-              />
-              <div className="flex gap-2">
-                <button type="submit" className="bg-black text-white rounded-xl px-4 py-2" disabled={forgotLoading}>
-                  {forgotLoading ? "Enviando..." : "Enviar link"}
-                </button>
-                <button type="button" className="border rounded-xl px-4 py-2" onClick={()=>setForgotOpen(false)}>
-                  Fechar
-                </button>
-              </div>
-            </form>
-            <p className="text-xs text-gray-500 mt-3">Você receberá um link para criar uma nova senha.</p>
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
+      <div className="w-full max-w-md space-y-6">
+        {/* Header */}
+        <div className="text-center space-y-2">
+          <div className="flex items-center justify-center space-x-2">
+            <Sparkles className="h-8 w-8 text-indigo-600" />
+            <h1 className="text-2xl font-bold text-gray-900">Elevea</h1>
           </div>
+          <p className="text-gray-600">
+            {showResetPassword ? 'Recupere sua senha' : 'Acesse sua conta'}
+          </p>
         </div>
-      )}
+
+        {/* Main Form */}
+        {showResetPassword ? (
+          <ResetPasswordForm
+            onBack={() => setShowResetPassword(false)}
+            onSuccess={handleResetSuccess}
+          />
+        ) : (
+          <LoginForm
+            onSuccess={handleLoginSuccess}
+            onForgotPassword={() => setShowResetPassword(true)}
+          />
+        )}
+
+        {/* VIP Upgrade Banner */}
+        {!showResetPassword && (
+          <Card className="border-indigo-200 bg-indigo-50">
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-sm font-medium text-indigo-900">
+                  Desbloqueie Recursos Premium
+                </CardTitle>
+                <Badge variant="secondary" className="bg-indigo-100 text-indigo-800">
+                  VIP
+                </Badge>
+              </div>
+              <CardDescription className="text-indigo-700 text-xs">
+                Acesso a analytics, WhatsApp, Chatwoot e IA
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="pt-0">
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full border-indigo-200 text-indigo-700 hover:bg-indigo-100"
+                onClick={() => setShowUpgrade(true)}
+              >
+                Ver Planos VIP
+              </Button>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Features Preview */}
+        {!showResetPassword && (
+          <div className="grid grid-cols-2 gap-3 text-center">
+            <div className="bg-white rounded-lg p-3 shadow-sm">
+              <div className="text-xs font-medium text-gray-900">Analytics</div>
+              <div className="text-xs text-gray-500">Dados em tempo real</div>
+            </div>
+            <div className="bg-white rounded-lg p-3 shadow-sm">
+              <div className="text-xs font-medium text-gray-900">WhatsApp</div>
+              <div className="text-xs text-gray-500">Bot inteligente</div>
+            </div>
+            <div className="bg-white rounded-lg p-3 shadow-sm">
+              <div className="text-xs font-medium text-gray-900">Chatwoot</div>
+              <div className="text-xs text-gray-500">Suporte integrado</div>
+            </div>
+            <div className="bg-white rounded-lg p-3 shadow-sm">
+              <div className="text-xs font-medium text-gray-900">IA</div>
+              <div className="text-xs text-gray-500">Automação avançada</div>
+            </div>
+          </div>
+        )}
+
+        {/* Footer */}
+        <div className="text-center text-xs text-gray-500">
+          <p>© 2024 Elevea. Todos os direitos reservados.</p>
+          <p className="mt-1">
+            Precisa de ajuda?{' '}
+            <a href="mailto:suporte@elevea.com" className="text-indigo-600 hover:underline">
+              Entre em contato
+            </a>
+          </p>
+        </div>
+      </div>
     </div>
   );
-}
+};

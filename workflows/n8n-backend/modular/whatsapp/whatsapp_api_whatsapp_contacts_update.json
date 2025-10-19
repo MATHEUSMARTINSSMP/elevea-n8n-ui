@@ -1,0 +1,216 @@
+{
+  "name": "whatsapp_api_whatsapp_contacts_update",
+  "description": "Workflow modular para api/whatsapp/contacts/update - Módulo WHATSAPP",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "api/whatsapp/contacts/update",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "webhook-wa-contact-update",
+      "name": "📱 Webhook - WhatsApp Update Contact",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [
+        260,
+        11400
+      ],
+      "webhookId": "elevea-wa-contact-update"
+    },
+    {
+      "parameters": {
+        "jsCode": "// FUNÇÃO: wa_update_contact (do GAS linha 1165)\nconst out = [];\nfor (const { json } of items) {\n  const { site, siteSlug, id, telefone, nome, email, empresa, tags, ativo, profilePicUrl } = json.body || {};\n  const normalizedSite = (site || siteSlug || '').toUpperCase();\n  \n  if (!normalizedSite) {\n    out.push({\n      json: {\n        success: false,\n        error: 'Site é obrigatório',\n        timestamp: new Date().toISOString()\n      }\n    });\n    continue;\n  }\n  \n  if (!id && !telefone) {\n    out.push({\n      json: {\n        success: false,\n        error: 'ID ou telefone é obrigatório',\n        timestamp: new Date().toISOString()\n      }\n    });\n    continue;\n  }\n  \n  // Normalizar telefone se fornecido\n  let normalizedPhone = null;\n  if (telefone) {\n    const digits = telefone.replace(/\\D/g, '');\n    if (digits.length === 11 && !digits.startsWith('55')) {\n      normalizedPhone = '55' + digits;\n    } else if (digits.length === 10) {\n      normalizedPhone = '55' + digits.substring(0, 2) + '9' + digits.substring(2);\n    } else {\n      normalizedPhone = digits;\n    }\n  }\n  \n  const searchFormula = id \n    ? `AND({id}='${id}', {siteSlug}='${normalizedSite}')`\n    : `AND({telefone_normalizado}='${normalizedPhone}', {siteSlug}='${normalizedSite}')`;\n  \n  out.push({\n    json: {\n      siteSlug: normalizedSite,\n      searchFormula: searchFormula,\n      updates: {\n        nome: nome,\n        email: email,\n        empresa: empresa,\n        tags: tags,\n        ativo: ativo,\n        profilePicUrl: profilePicUrl,\n        atualizado_em: new Date().toISOString()\n      },\n      timestamp: new Date().toISOString()\n    }\n  });\n}\nreturn out;"
+      },
+      "id": "code-wa-contact-update-prep",
+      "name": "📝 Code - Prepare Contact Update",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        460,
+        11400
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "search",
+        "base": {
+          "__rl": true,
+          "value": "appELEVEA",
+          "mode": "list"
+        },
+        "table": {
+          "__rl": true,
+          "value": "whatsapp_contacts",
+          "mode": "list"
+        },
+        "filterByFormula": "={{ $json.searchFormula }}",
+        "options": {}
+      },
+      "id": "airtable-search-wa-contact",
+      "name": "🗄️ Airtable - Search Contact",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [
+        660,
+        11400
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "base": {
+          "__rl": true,
+          "value": "appELEVEA",
+          "mode": "list"
+        },
+        "table": {
+          "__rl": true,
+          "value": "whatsapp_contacts",
+          "mode": "list"
+        },
+        "id": "={{ $json.id }}",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldName": "nome",
+              "fieldValue": "={{ $json.updates.nome }}"
+            },
+            {
+              "fieldName": "email",
+              "fieldValue": "={{ $json.updates.email }}"
+            },
+            {
+              "fieldName": "empresa",
+              "fieldValue": "={{ $json.updates.empresa }}"
+            },
+            {
+              "fieldName": "tags",
+              "fieldValue": "={{ $json.updates.tags }}"
+            },
+            {
+              "fieldName": "ativo",
+              "fieldValue": "={{ $json.updates.ativo }}"
+            },
+            {
+              "fieldName": "profilePicUrl",
+              "fieldValue": "={{ $json.updates.profilePicUrl }}"
+            },
+            {
+              "fieldName": "atualizado_em",
+              "fieldValue": "={{ $json.updates.atualizado_em }}"
+            }
+          ]
+        }
+      },
+      "id": "airtable-update-wa-contact",
+      "name": "🗄️ Airtable - Update Contact",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [
+        860,
+        11400
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { success: true, message: 'Contato atualizado com sucesso', data: $json.fields, timestamp: new Date().toISOString() } }}",
+        "options": {
+          "headers": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          }
+        }
+      },
+      "id": "respond-wa-contact-update",
+      "name": "📤 Respond - WA Contact Update",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1060,
+        11400
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { success: true, message: '📱 Webhook - WhatsApp Update Contact processado', timestamp: new Date().toISOString() } }}",
+        "options": {}
+      },
+      "id": "respond-webhook-wa-contact-update",
+      "name": "📤 Respond - WhatsApp Update Contact",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        800,
+        100
+      ]
+    }
+  ],
+  "connections": {
+    "webhook-wa-contact-update": {
+      "main": [
+        [
+          {
+            "node": "code-wa-contact-update-prep",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "respond-webhook-wa-contact-update",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "code-wa-contact-update-prep": {
+      "main": [
+        [
+          {
+            "node": "airtable-search-wa-contact",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "airtable-search-wa-contact": {
+      "main": [
+        [
+          {
+            "node": "airtable-update-wa-contact",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "airtable-update-wa-contact": {
+      "main": [
+        [
+          {
+            "node": "respond-wa-contact-update",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": [
+    "modular",
+    "elevea",
+    "whatsapp"
+  ]
+}

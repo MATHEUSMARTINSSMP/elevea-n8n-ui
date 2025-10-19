@@ -1,0 +1,97 @@
+{
+  "name": "system_api_options",
+  "description": "Workflow modular para api/options - Módulo SYSTEM",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "OPTIONS",
+        "path": "api/options",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "webhook-options",
+      "name": "⚙️ Webhook - Options (CORS)",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [
+        260,
+        200
+      ],
+      "webhookId": "elevea-options"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { success: true, message: 'CORS OK' } }}",
+        "options": {
+          "headers": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              },
+              {
+                "name": "Access-Control-Allow-Methods",
+                "value": "GET, POST, PUT, DELETE, OPTIONS"
+              },
+              {
+                "name": "Access-Control-Allow-Headers",
+                "value": "Content-Type, Authorization, x-elevea-key"
+              }
+            ]
+          }
+        }
+      },
+      "id": "respond-options",
+      "name": "📤 Respond - Options",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        460,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { success: true, message: '⚙️ Webhook - Options (CORS) processado', timestamp: new Date().toISOString() } }}",
+        "options": {}
+      },
+      "id": "respond-webhook-options",
+      "name": "📤 Respond - Options (CORS)",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        800,
+        100
+      ]
+    }
+  ],
+  "connections": {
+    "webhook-options": {
+      "main": [
+        [
+          {
+            "node": "respond-options",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "respond-webhook-options",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": [
+    "modular",
+    "elevea",
+    "system"
+  ]
+}

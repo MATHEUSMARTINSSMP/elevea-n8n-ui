@@ -1,0 +1,75 @@
+import { Handler } from '@netlify/functions';
+
+const handler: Handler = async (event, context) => {
+  const headers = {
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Headers': 'Content-Type',
+    'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+    'Content-Type': 'application/json',
+  };
+
+  if (event.httpMethod === 'OPTIONS') {
+    return { statusCode: 200, headers, body: '' };
+  }
+
+  try {
+    const { feedbackId, approvedBy, shouldPublish, reason } = JSON.parse(event.body || '{}');
+    
+    if (!feedbackId || !approvedBy) {
+      return {
+        statusCode: 400,
+        headers,
+        body: JSON.stringify({ 
+          success: false, 
+          error: 'feedbackId e approvedBy são obrigatórios' 
+        }),
+      };
+    }
+
+    // Chamada para n8n com endpoint de aprovação
+    const n8nResponse = await fetch(`${process.env.N8N_BASE_URL}/webhook/api/feedback/approve`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${process.env.N8N_SIGNING_SECRET}`,
+        'x-elevea-key': process.env.N8N_SIGNING_SECRET,
+      },
+      body: JSON.stringify({
+        body: {
+          feedbackId,
+          approvedBy,
+          shouldPublish: shouldPublish || false,
+          reason: reason || 'Aprovado via dashboard',
+        },
+        timestamp: new Date().toISOString(),
+      }),
+    });
+
+    if (!n8nResponse.ok) {
+      throw new Error(`n8n Error: ${n8nResponse.status}`);
+    }
+
+    const data = await n8nResponse.json();
+
+    return {
+      statusCode: 200,
+      headers,
+      body: JSON.stringify(data),
+    };
+  } catch (error) {
+    console.error('Error in feedbacks/approve:', error);
+    return {
+      statusCode: 500,
+      headers,
+      body: JSON.stringify({ 
+        success: false, 
+        error: error instanceof Error ? error.message : 'Erro interno' 
+      }),
+    };
+  }
+};
+
+export { handler };
+
+
+

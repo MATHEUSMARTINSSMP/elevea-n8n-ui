@@ -1,0 +1,418 @@
+{
+  "name": "content_leads_management",
+  "description": "Captura e gerenciamento de leads",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "api/leads/capture",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "node_1_webhook-leads-capture",
+      "name": "🎯 Webhook - Leads Capture",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [
+        260,
+        4500
+      ],
+      "webhookId": "elevea-leads-capture"
+    },
+    {
+      "parameters": {
+        "jsCode": "// FUNÇÃO: lead_new (do GAS)\nconst out = [];\nfor (const { json } of items) {\n  const { siteSlug, name, email, phone, message, source } = json.body || {};\n  \n  if (!siteSlug || !name) {\n    out.push({\n      json: {\n        success: false,\n        error: 'siteSlug e name são obrigatórios',\n        timestamp: new Date().toISOString()\n      }\n    });\n    continue;\n  }\n  \n  // Calcular lead score (VIP feature)\n  let score = 0;\n  if (email) score += 30;\n  if (phone) score += 30;\n  if (message && message.length > 50) score += 20;\n  if (source === 'google') score += 20;\n  \n  out.push({\n    json: {\n      siteSlug,\n      name,\n      email: email || null,\n      phone: phone || null,\n      message: message || '',\n      source: source || 'website',\n      status: 'new',\n      score: score,\n      timestamp: new Date().toISOString()\n    }\n  });\n}\nreturn out;"
+      },
+      "id": "node_2_code-leads-capture",
+      "name": "🎯 Code - Leads Capture",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        460,
+        4500
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "base": {
+          "__rl": true,
+          "value": "appELEVEA",
+          "mode": "list"
+        },
+        "table": {
+          "__rl": true,
+          "value": "leads",
+          "mode": "list"
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldName": "site_slug",
+              "fieldValue": "={{ $json.siteSlug }}"
+            },
+            {
+              "fieldName": "name",
+              "fieldValue": "={{ $json.name }}"
+            },
+            {
+              "fieldName": "email",
+              "fieldValue": "={{ $json.email }}"
+            },
+            {
+              "fieldName": "phone",
+              "fieldValue": "={{ $json.phone }}"
+            },
+            {
+              "fieldName": "message",
+              "fieldValue": "={{ $json.message }}"
+            },
+            {
+              "fieldName": "source",
+              "fieldValue": "={{ $json.source }}"
+            },
+            {
+              "fieldName": "status",
+              "fieldValue": "new"
+            },
+            {
+              "fieldName": "score",
+              "fieldValue": "={{ $json.score }}"
+            }
+          ]
+        }
+      },
+      "id": "node_3_airtable-insert-lead",
+      "name": "🗄️ Airtable - Insert Lead",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [
+        660,
+        4500
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// FUNÇÃO: recordEvent_ (do GAS) - Registrar evento analytics\nconst out = [];\nfor (const { json } of items) {\n  out.push({\n    json: {\n      siteSlug: json.siteSlug,\n      eventType: 'lead_captured',\n      eventData: JSON.stringify({\n        name: json.name,\n        email: json.email,\n        phone: json.phone,\n        source: json.source,\n        score: json.score\n      }),\n      timestamp: new Date().toISOString()\n    }\n  });\n}\nreturn out;"
+      },
+      "id": "node_4_code-analytics-lead-captured",
+      "name": "📊 Code - Analytics Lead Captured",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        860,
+        4500
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "base": {
+          "__rl": true,
+          "value": "appELEVEA",
+          "mode": "list"
+        },
+        "table": {
+          "__rl": true,
+          "value": "analytics_events",
+          "mode": "list"
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldName": "site_slug",
+              "fieldValue": "={{ $json.siteSlug }}"
+            },
+            {
+              "fieldName": "event_type",
+              "fieldValue": "lead_captured"
+            },
+            {
+              "fieldName": "event_data",
+              "fieldValue": "={{ $json.eventData }}"
+            }
+          ]
+        }
+      },
+      "id": "node_5_airtable-insert-analytics-lead",
+      "name": "🗄️ Airtable - Insert Analytics Lead",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [
+        1060,
+        4500
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://api.telegram.org/bot{{ $env.TELEGRAM_BOT_TOKEN }}/sendMessage",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ {\n  \"chat_id\": $env.TELEGRAM_CHAT_ID,\n  \"text\": \"🎯 NOVO LEAD!\\n\\n\" +\n    \"Site: \" + $json.siteSlug + \"\\n\" +\n    \"Nome: \" + $json.name + \"\\n\" +\n    \"Email: \" + ($json.email || 'N/A') + \"\\n\" +\n    \"Telefone: \" + ($json.phone || 'N/A') + \"\\n\" +\n    \"Fonte: \" + $json.source + \"\\n\" +\n    \"Score: \" + $json.score + \"/100\\n\" +\n    \"Mensagem: \" + ($json.message || 'N/A'),\n  \"parse_mode\": \"HTML\"\n} }}",
+        "options": {}
+      },
+      "id": "node_6_http-telegram-lead-alert",
+      "name": "📱 HTTP - Telegram Lead Alert",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1260,
+        4500
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { success: true, message: 'Lead capturado com sucesso!', leadId: $json.id, score: $json.score, timestamp: new Date().toISOString() } }}",
+        "options": {
+          "headers": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          }
+        }
+      },
+      "id": "node_7_respond-leads-capture",
+      "name": "📤 Respond - Leads Capture",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1460,
+        4500
+      ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "GET",
+        "path": "api/leads/list",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "node_8_webhook-leads-list",
+      "name": "🎯 Webhook - Leads List",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [
+        260,
+        4700
+      ],
+      "webhookId": "elevea-leads-list"
+    },
+    {
+      "parameters": {
+        "jsCode": "// FUNÇÃO: list_leads (do GAS)\nconst out = [];\nfor (const { json } of items) {\n  const query = json.query || {};\n  const { siteSlug, status, limit } = query;\n  \n  out.push({\n    json: {\n      siteSlug: siteSlug || 'all',\n      status: status || 'all',\n      limit: parseInt(limit) || 100,\n      timestamp: new Date().toISOString()\n    }\n  });\n}\nreturn out;"
+      },
+      "id": "node_9_code-leads-list",
+      "name": "🎯 Code - Leads List",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        460,
+        4700
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "list",
+        "base": {
+          "__rl": true,
+          "value": "appELEVEA",
+          "mode": "list"
+        },
+        "table": {
+          "__rl": true,
+          "value": "leads",
+          "mode": "list"
+        },
+        "limit": "={{ $json.limit }}",
+        "options": {
+          "sort": [
+            {
+              "field": "created_at",
+              "direction": "desc"
+            }
+          ]
+        }
+      },
+      "id": "node_10_airtable-list-leads",
+      "name": "🗄️ Airtable - List Leads",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [
+        660,
+        4700
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Formatar lista de leads\nconst out = [];\nconst leads = [];\n\nfor (const { json } of items) {\n  const fields = json.fields || {};\n  leads.push({\n    leadId: json.id,\n    siteSlug: fields.site_slug,\n    name: fields.name,\n    email: fields.email,\n    phone: fields.phone,\n    message: fields.message,\n    source: fields.source,\n    status: fields.status,\n    score: fields.score,\n    createdAt: fields.created_at\n  });\n}\n\nout.push({\n  json: {\n    success: true,\n    leads: leads,\n    count: leads.length,\n    averageScore: leads.reduce((sum, l) => sum + (l.score || 0), 0) / leads.length || 0,\n    timestamp: new Date().toISOString()\n  }\n});\nreturn out;"
+      },
+      "id": "node_11_code-format-leads-list",
+      "name": "🎯 Code - Format Leads List",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        860,
+        4700
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {
+          "headers": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          }
+        }
+      },
+      "id": "node_12_respond-leads-list",
+      "name": "📤 Respond - Leads List",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1060,
+        4700
+      ]
+    }
+  ],
+  "connections": {
+    "node_1_webhook-leads-capture": {
+      "main": [
+        [
+          {
+            "node": "node_2_code-leads-capture",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "node_7_respond-leads-capture",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "node_2_code-leads-capture": {
+      "main": [
+        [
+          {
+            "node": "node_3_airtable-insert-lead",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "node_3_airtable-insert-lead": {
+      "main": [
+        [
+          {
+            "node": "node_4_code-analytics-lead-captured",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "node_4_code-analytics-lead-captured": {
+      "main": [
+        [
+          {
+            "node": "node_5_airtable-insert-analytics-lead",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "node_5_airtable-insert-analytics-lead": {
+      "main": [
+        [
+          {
+            "node": "node_6_http-telegram-lead-alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "node_6_http-telegram-lead-alert": {
+      "main": [
+        [
+          {
+            "node": "node_7_respond-leads-capture",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "node_8_webhook-leads-list": {
+      "main": [
+        [
+          {
+            "node": "node_9_code-leads-list",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "node_12_respond-leads-list",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "node_9_code-leads-list": {
+      "main": [
+        [
+          {
+            "node": "node_10_airtable-list-leads",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "node_10_airtable-list-leads": {
+      "main": [
+        [
+          {
+            "node": "node_11_code-format-leads-list",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "node_11_code-format-leads-list": {
+      "main": [
+        [
+          {
+            "node": "node_12_respond-leads-list",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": [
+    "optimized",
+    "elevea",
+    "modular"
+  ]
+}

@@ -1,0 +1,160 @@
+{
+  "name": "marketplace_api_marketplace_my_purchases",
+  "description": "Workflow modular para api/marketplace/my-purchases - Módulo MARKETPLACE",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "api/marketplace/my-purchases",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "webhook-my-purchases",
+      "name": "🏪 Webhook - My Purchases",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [
+        260,
+        15600
+      ],
+      "webhookId": "elevea-my-purchases"
+    },
+    {
+      "parameters": {
+        "jsCode": "// FUNÇÃO: marketplace_get_purchases (do GAS linha 1423)\nconst out = [];\nfor (const { json } of items) {\n  const { customerEmail } = json.body || {};\n  \n  if (!customerEmail) {\n    out.push({\n      json: {\n        success: false,\n        error: 'Customer email é obrigatório',\n        timestamp: new Date().toISOString()\n      }\n    });\n    continue;\n  }\n  \n  out.push({\n    json: {\n      customerEmail: customerEmail.toLowerCase().trim(),\n      searchFormula: `{customerEmail}='${customerEmail.toLowerCase().trim()}'`,\n      timestamp: new Date().toISOString()\n    }\n  });\n}\nreturn out;"
+      },
+      "id": "code-my-purchases-prep",
+      "name": "📝 Code - Prepare My Purchases",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        460,
+        15600
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "list",
+        "base": {
+          "__rl": true,
+          "value": "appELEVEA",
+          "mode": "list"
+        },
+        "table": {
+          "__rl": true,
+          "value": "template_purchases",
+          "mode": "list"
+        },
+        "returnAll": true,
+        "options": {
+          "filterByFormula": "={{ $json.searchFormula }}"
+        }
+      },
+      "id": "airtable-list-my-purchases",
+      "name": "🗄️ Airtable - List My Purchases",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [
+        660,
+        15600
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Formatar lista de compras\nconst out = [];\nconst purchases = items.map(i => {\n  const fields = i.json.fields || i.json;\n  return {\n    purchaseId: fields.id,\n    templateId: fields.templateId,\n    templateName: fields.templateName || 'Template',\n    licenseKey: fields.licenseKey,\n    downloadUrl: fields.downloadUrl,\n    purchaseDate: fields.purchaseDate,\n    pricePaid: fields.pricePaid,\n    currency: fields.currency,\n    status: fields.status\n  };\n});\n\n// Ordenar por data (mais recente primeiro)\npurchases.sort((a, b) => new Date(b.purchaseDate) - new Date(a.purchaseDate));\n\nout.push({\n  json: {\n    success: true,\n    data: {\n      purchases: purchases,\n      total: purchases.length\n    },\n    timestamp: new Date().toISOString()\n  }\n});\nreturn out;"
+      },
+      "id": "code-format-my-purchases",
+      "name": "📊 Code - Format Purchases",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        860,
+        15600
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {
+          "headers": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          }
+        }
+      },
+      "id": "respond-my-purchases",
+      "name": "📤 Respond - My Purchases",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1060,
+        15600
+      ]
+    }
+  ],
+  "connections": {
+    "webhook-my-purchases": {
+      "main": [
+        [
+          {
+            "node": "code-my-purchases-prep",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "respond-my-purchases",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "code-my-purchases-prep": {
+      "main": [
+        [
+          {
+            "node": "airtable-list-my-purchases",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "airtable-list-my-purchases": {
+      "main": [
+        [
+          {
+            "node": "code-format-my-purchases",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "code-format-my-purchases": {
+      "main": [
+        [
+          {
+            "node": "respond-my-purchases",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": [
+    "modular",
+    "elevea",
+    "marketplace"
+  ]
+}

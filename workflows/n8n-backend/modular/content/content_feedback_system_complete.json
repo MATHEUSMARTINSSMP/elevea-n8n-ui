@@ -1,0 +1,731 @@
+{
+  "name": "CONTENT_Feedback_System_Complete",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "api/feedback/submit",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-feedback-submit",
+      "name": "💬 Webhook - Feedback Submit",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [240, 300],
+      "webhookId": "feedback-submit"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Normalize + validate + Redis keys + robust CORS/preflight\nconst now = () => new Date().toISOString();\nconst trim = v => typeof v === 'string' ? v.trim() : v;\nconst toNum = v => (v === '' || v == null) ? null : Number(v);\nconst firstIp = (h) => (h['x-forwarded-for'] || '')\n  .split(',')[0].trim() || h['x-real-ip'] || 'unknown';\nconst lower = v => typeof v === 'string' ? v.toLowerCase() : v;\n\n// Simple hash function without crypto module\nconst simpleHash = (str) => {\n  let hash = 0;\n  for (let i = 0; i < str.length; i++) {\n    const char = str.charCodeAt(i);\n    hash = ((hash << 5) - hash) + char;\n    hash = hash & hash; // Convert to 32bit integer\n  }\n  return Math.abs(hash).toString(36).slice(0, 12);\n};\n\nconst out = [];\n\nfor (const { json } of items) {\n  const headers = Object.fromEntries(\n    Object.entries(json.headers || {}).map(([k, v]) => [k.toLowerCase(), v])\n  );\n  const method = (json.req?.method || json.method || '').toUpperCase();\n  const isPreflight = method === 'OPTIONS' || !!headers['access-control-request-method'];\n\n  if (isPreflight) {\n    out.push({ json: { _preflight: true } });\n    continue;\n  }\n\n  // Body sempre objeto\n  let b = json.body ?? {};\n  if (typeof b === 'string') {\n    try { b = JSON.parse(b); } catch { b = {}; }\n  }\n\n  const siteSlug = lower(trim(b.siteSlug) || '');\n  const clientName = trim(b.clientName) || '';\n  const clientEmail = lower(trim(b.clientEmail) || '') || null;\n  const rating = toNum(b.rating);\n  const comment = (trim(b.comment) || '').slice(0, 1000);\n\n  if (!siteSlug || !clientName || rating == null) {\n    out.push({ json: {\n      success: false,\n      error: `siteSlug, clientName e rating são obrigatórios`,\n      timestamp: now(),\n      statusCode: 400,\n      _preflight: false,\n      debug: { received: { siteSlug, clientName, rating } }\n    }});\n    continue;\n  }\n\n  if (!Number.isFinite(rating) || rating < 1 || rating > 5) {\n    out.push({ json: {\n      success: false,\n      error: 'rating deve ser entre 1 e 5',\n      timestamp: now(),\n      statusCode: 400,\n      _preflight: false\n    }});\n    continue;\n  }\n\n  const ip = firstIp(headers);\n  const userAgent = headers['user-agent'] || 'unknown';\n\n  // chaves com hash simples (sem crypto)\n  const idemSeed = `${siteSlug}|${clientEmail || clientName}|${rating}|${comment.slice(0,60)}`;\n  const idemKey = `fb:idem:${simpleHash(idemSeed)}`;\n  const rateKey = `fb:rate:${siteSlug}:${simpleHash(ip)}`;\n\n  out.push({ json: {\n    // Campos principais para Airtable\n    site_slug: siteSlug,\n    client_name: clientName.slice(0, 120),\n    client_email: clientEmail,\n    rating: rating,\n    comment: comment,\n    status: 'pending',\n    ip_address: ip,\n    user_agent: userAgent,\n    source: 'website',\n    \n    // Campos de controle\n    approved_by: null,\n    is_published: false,\n    \n    // Metadados\n    created_at: now(),\n    raw_data: JSON.stringify(b),\n    \n    // Redis keys para controle\n    _redis: { idemKey, rateKey },\n    _preflight: false\n  }});\n}\n\nreturn out;"
+      },
+      "id": "code-normalize-validate",
+      "name": "💬 Code - Normalize + Validate",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{$json._preflight}}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "if-preflight",
+      "name": "🔀 IF - Preflight?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"message\": \"CORS preflight OK\", \"timestamp\": new Date().toISOString() } }}",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              },
+              {
+                "name": "Access-Control-Allow-Methods",
+                "value": "GET, POST, PUT, DELETE, OPTIONS"
+              },
+              {
+                "name": "Access-Control-Allow-Headers",
+                "value": "Content-Type, Authorization"
+              }
+            ]
+          }
+        }
+      },
+      "id": "respond-preflight",
+      "name": "📤 Respond - Preflight 204",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [900, 200]
+    },
+    {
+      "parameters": {
+        "operation": "incr",
+        "key": "={{$json._redis.rateKey}}",
+        "expire": true,
+        "expiration": 60
+      },
+      "id": "redis-rate-incr",
+      "name": "🧠 Redis - Rate INCR",
+      "type": "n8n-nodes-base.redis",
+      "typeVersion": 1,
+      "position": [900, 400]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "number": [
+            {
+              "value1": "={{$json}}",
+              "operation": "smallerEqual",
+              "value2": 60
+            }
+          ]
+        }
+      },
+      "id": "if-rate-limit",
+      "name": "🔀 IF - Rate <= 60/min",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1120, 400]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"error\": \"Rate limit exceeded\", \"statusCode\": 429, \"timestamp\": new Date().toISOString() } }}",
+        "responseCode": 429
+      },
+      "id": "respond-429",
+      "name": "📤 Respond - 429",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [1340, 300]
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineByIndex",
+        "options": {}
+      },
+      "id": "merge-data",
+      "name": "🔀 Merge",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 2,
+      "position": [1340, 500]
+    },
+    {
+      "parameters": {
+        "operation": "setnx",
+        "key": "={{$json._redis.idemKey}}",
+        "value": "1",
+        "expire": true,
+        "expiration": 3600
+      },
+      "id": "redis-idempotency",
+      "name": "🧠 Redis - Idempotency SETNX",
+      "type": "n8n-nodes-base.redis",
+      "typeVersion": 1,
+      "position": [1560, 500]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{$json.set}}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "if-is-new",
+      "name": "🔀 IF - Is New?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1780, 500]
+    },
+    {
+      "parameters": {
+        "jsCode": "// 🧹 Clean Data for Airtable - COMPLETO\nconst out = [];\n\nfor (const { json } of items) {\n  // Extrair TODOS os campos que existem na tabela Airtable\n  const cleanData = {\n    // Campos principais (já funcionando)\n    site_slug: json.site_slug,\n    client_name: json.client_name,\n    client_email: json.client_email,\n    rating: json.rating,\n    comment: json.comment,\n    \n    // Campos que estavam faltando\n    status: json.status,\n    ip_address: json.ip_address,\n    source: json.source,\n    approved_by: json.approved_by,\n    is_published: json.is_published,\n    created_at: json.created_at,\n    \n    // Campos adicionais da tabela (se existirem nos dados)\n    user_id: json.user_id || null,\n    feedback_text: json.feedback_text || json.comment,\n    feedback_type: json.feedback_type || 'general',\n    submitted_at: json.submitted_at || json.created_at,\n    approved_at: json.approved_at || null\n  };\n\n  out.push({ json: cleanData });\n}\n\nreturn out;"
+      },
+      "id": "code-clean-airtable",
+      "name": "🧹 Code - Clean Data for Airtable",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2000, 400]
+    },
+    {
+      "parameters": {
+        "operation": "create",
+        "base": {
+          "__rl": true,
+          "value": "Elevea",
+          "cachedResultName": "Elevea"
+        },
+        "table": {
+          "__rl": true,
+          "value": "feedbacks",
+          "cachedResultName": "feedbacks"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "site_slug": "={{$json.site_slug}}",
+            "client_name": "={{$json.client_name}}",
+            "client_email": "={{$json.client_email}}",
+            "rating": "={{$json.rating}}",
+            "comment": "={{$json.comment}}",
+            "status": "={{$json.status}}",
+            "ip_address": "={{$json.ip_address}}",
+            "source": "={{$json.source}}",
+            "approved_by": "={{$json.approved_by}}",
+            "is_published": "={{$json.is_published}}",
+            "created_at": "={{$json.created_at}}"
+          }
+        },
+        "options": {
+          "typecast": true
+        }
+      },
+      "id": "airtable-insert-feedback",
+      "name": "🗄️ Airtable - Insert Feedback",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [2220, 400]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"success\": true, \"message\": \"Feedback submitted successfully\", \"id\": $json.id, \"timestamp\": new Date().toISOString() } }}"
+      },
+      "id": "respond-submit-ok",
+      "name": "📤 Respond - Submit OK",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [2440, 400]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"message\": \"Feedback already submitted (idempotent)\", \"timestamp\": new Date().toISOString() } }}"
+      },
+      "id": "respond-idempotent",
+      "name": "📤 Respond - Idempotent OK",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [2000, 600]
+    },
+    {
+      "parameters": {
+        "httpMethod": "GET",
+        "path": "api/feedback/list",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-feedback-list",
+      "name": "📋 Webhook - Feedback List",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [240, 800],
+      "webhookId": "feedback-list"
+    },
+    {
+      "parameters": {
+        "jsCode": "// 📋 Build Filters for Airtable\nconst out = [];\n\nfor (const { json } of items) {\n  const { siteSlug, status, limit = 50, offset = 0 } = json.query || {};\n  \n  let filterFormula = '';\n  \n  if (siteSlug) {\n    filterFormula += `{site_slug}='${siteSlug}'`;\n  }\n  \n  if (status) {\n    if (filterFormula) filterFormula += ' AND ';\n    filterFormula += `{status}='${status}'`;\n  }\n  \n  if (!filterFormula) {\n    filterFormula = 'RECORD_ID()'; // Return all if no filters\n  }\n  \n  out.push({\n    json: {\n      filterFormula,\n      limit: Math.min(limit, 100),\n      offset,\n      sort: [{ field: 'created_at', direction: 'desc' }]\n    }\n  });\n}\n\nreturn out;"
+      },
+      "id": "code-build-filters",
+      "name": "📋 Code - Build Filters",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [460, 800]
+    },
+    {
+      "parameters": {
+        "operation": "search",
+        "base": {
+          "__rl": true,
+          "value": "Elevea",
+          "cachedResultName": "Elevea"
+        },
+        "table": {
+          "__rl": true,
+          "value": "feedbacks",
+          "cachedResultName": "feedbacks"
+        },
+        "filterByFormula": "={{$json.filterFormula}}",
+        "options": {
+          "returnAll": true,
+          "sort": "={{$json.sort}}"
+        }
+      },
+      "id": "airtable-list",
+      "name": "🗄️ Airtable - List",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [680, 800]
+    },
+    {
+      "parameters": {
+        "jsCode": "// 📋 Format List - CORRIGIDO PARA ACESSAR CAMPOS DIRETAMENTE\nconst list = [];\n\nfor (const { json } of items) {\n  // Acessar os campos diretamente do objeto json, sem \"json.fields\"\n  list.push({\n    id: json.id,\n    siteSlug: json.site_slug || null, // Acessando diretamente json.site_slug\n    clientName: json.client_name || null, // Acessando diretamente json.client_name\n    clientEmail: json.client_email || null, // Acessando diretamente json.client_email\n    rating: Number(json.rating) || 0, // Acessando diretamente json.rating\n    comment: json.comment || '', // Acessando diretamente json.comment\n    status: json.status || 'pending', // Acessando diretamente json.status\n    approvedBy: json.approved_by || null, // Acessando diretamente json.approved_by\n    approvedAt: json.approved_at || null, // Acessando diretamente json.approved_at\n    published: !!json.is_published, // Acessando diretamente json.is_published\n    createdAt: json.created_at || null // Acessando diretamente json.created_at\n  });\n}\n\nconst count = list.length;\nconst avg = count ? list.reduce((s, x) => s + (x.rating || 0), 0) / count : 0;\n\n// Removido a referência ao nó inexistente\nreturn [{\n  json: {\n    success: true,\n    count,\n    averageRating: Number(avg.toFixed(2)),\n    feedbacks: list,\n    executionId: $execution.id,\n    timestamp: new Date().toISOString()\n  }\n}];"
+      },
+      "id": "code-format-list",
+      "name": "📋 Code - Format List",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [900, 800]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{$json}}"
+      },
+      "id": "respond-list",
+      "name": "📤 Respond - List",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [1120, 800]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "api/feedback/approve",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-feedback-approve",
+      "name": "✅ Webhook - Feedback Approve",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [240, 1200],
+      "webhookId": "feedback-approve"
+    },
+    {
+      "parameters": {
+        "jsCode": "// 🔐 Validate Approve - PARA CLIENTES DA AGÊNCIA\nconst now = new Date().toISOString();\nconst out = [];\n\nfor (const { json } of items) {\n  const { feedbackId, approvedBy, shouldPublish, reason } = json.body || {};\n  \n  if (!feedbackId) {\n    out.push({\n      json: {\n        success: false,\n        error: 'feedbackId é obrigatório'\n      }\n    });\n    continue;\n  }\n\n  out.push({\n    json: {\n      success: true,\n      feedbackId,\n      newStatus: 'approved',\n      approvedBy: approvedBy || 'admin@elevea.com',\n      approvedAt: now,\n      shouldPublish: !!shouldPublish,\n      reason: reason || 'Aprovado via admin'\n    }\n  });\n}\n\nreturn out;"
+      },
+      "id": "code-validate-approve",
+      "name": "✅ Code - Validate Approve",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [460, 1200]
+    },
+    {
+      "parameters": {
+        "jsCode": "// 📋 Format for Airtable - CORRIGIDO\nconst out = [];\n\nfor (const { json } of items) {\n  if (!json.success) {\n    out.push({ json: json });\n    continue;\n  }\n\n  // Para \"Map Automatically\", os campos devem estar no nível raiz\n  out.push({\n    json: {\n      id: json.feedbackId,\n      status: json.newStatus,\n      approved_by: json.approvedBy,\n      approved_at: json.approvedAt,\n      is_published: json.shouldPublish\n    }\n  });\n}\n\nreturn out;"
+      },
+      "id": "code-format-airtable",
+      "name": "✅ Code - Format for Airtable",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [680, 1200]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "base": {
+          "__rl": true,
+          "value": "Elevea",
+          "cachedResultName": "Elevea"
+        },
+        "table": {
+          "__rl": true,
+          "value": "feedbacks",
+          "cachedResultName": "feedbacks"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData"
+        },
+        "options": {
+          "typecast": true
+        }
+      },
+      "id": "airtable-update-feedback",
+      "name": "✅ Airtable - Update Feedback",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [900, 1200]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{$json.fields.is_published}}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "if-should-publish",
+      "name": "🔀 IF - Should Publish?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1120, 1200]
+    },
+    {
+      "parameters": {
+        "operation": "search",
+        "base": {
+          "__rl": true,
+          "value": "Elevea",
+          "cachedResultName": "Elevea"
+        },
+        "table": {
+          "__rl": true,
+          "value": "clients",
+          "cachedResultName": "clients"
+        },
+        "filterByFormula": "AND({site_slug}='{{$json.fields.site_slug}}')",
+        "options": {
+          "returnAll": true
+        }
+      },
+      "id": "airtable-find-client",
+      "name": "🔍 Airtable - Find Client",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [1340, 1000]
+    },
+    {
+      "parameters": {
+        "jsCode": "// 🔗 Get Client Build Hook\nconst out = [];\n\nfor (const { json } of items) {\n  const siteSlug = json.fields?.site_slug || json.site_slug;\n  \n  if (!siteSlug) {\n    out.push({\n      json: {\n        success: false,\n        error: 'site_slug não encontrado'\n      }\n    });\n    continue;\n  }\n\n  // Buscar cliente pelo site_slug\n  const clientData = $items('Airtable - Find Client', 0, 0)?.json;\n  \n  if (!clientData?.id) {\n    out.push({\n      json: {\n        success: false,\n        error: 'Cliente não encontrado'\n      }\n    });\n    continue;\n  }\n\n  const buildHook = clientData.fields?.netlify_build_hook;\n  \n  if (!buildHook) {\n    out.push({\n      json: {\n        success: false,\n        error: 'Build hook não configurado para este cliente'\n      }\n    });\n    continue;\n  }\n\n  out.push({\n    json: {\n      ...json,\n      buildHookUrl: buildHook,\n      clientId: clientData.id\n    }\n  });\n}\n\nreturn out;"
+      },
+      "id": "code-get-build-hook",
+      "name": "🔗 Code - Get Build Hook",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1560, 1000]
+    },
+    {
+      "parameters": {
+        "url": "={{$json.buildHookUrl}}",
+        "method": "POST",
+        "options": {}
+      },
+      "id": "http-netlify-build-hook",
+      "name": "🚀 HTTP - Netlify Build Hook",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1780, 1000]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"success\": true, \"message\": \"Feedback approved and site deployed\", \"feedbackId\": $json.feedbackId, \"buildHook\": $json.buildHookUrl, \"timestamp\": new Date().toISOString() } }}"
+      },
+      "id": "respond-approve-ok",
+      "name": "📤 Respond - Approve OK",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [2000, 1000]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"success\": true, \"message\": \"Feedback approved (no deployment)\", \"feedbackId\": $json.feedbackId, \"timestamp\": new Date().toISOString() } }}"
+      },
+      "id": "respond-approve-no-deploy",
+      "name": "📤 Respond - Approve (No Deploy)",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [1340, 1400]
+    }
+  ],
+  "connections": {
+    "💬 Webhook - Feedback Submit": {
+      "main": [
+        [
+          {
+            "node": "💬 Code - Normalize + Validate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "💬 Code - Normalize + Validate": {
+      "main": [
+        [
+          {
+            "node": "🔀 IF - Preflight?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🔀 IF - Preflight?": {
+      "main": [
+        [
+          {
+            "node": "📤 Respond - Preflight 204",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "🧠 Redis - Rate INCR",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🧠 Redis - Rate INCR": {
+      "main": [
+        [
+          {
+            "node": "🔀 IF - Rate <= 60/min",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🔀 IF - Rate <= 60/min": {
+      "main": [
+        [
+          {
+            "node": "📤 Respond - 429",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "🔀 Merge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🔀 Merge": {
+      "main": [
+        [
+          {
+            "node": "🧠 Redis - Idempotency SETNX",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🧠 Redis - Idempotency SETNX": {
+      "main": [
+        [
+          {
+            "node": "🔀 IF - Is New?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🔀 IF - Is New?": {
+      "main": [
+        [
+          {
+            "node": "🧹 Code - Clean Data for Airtable",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "📤 Respond - Idempotent OK",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🧹 Code - Clean Data for Airtable": {
+      "main": [
+        [
+          {
+            "node": "🗄️ Airtable - Insert Feedback",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🗄️ Airtable - Insert Feedback": {
+      "main": [
+        [
+          {
+            "node": "📤 Respond - Submit OK",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "📋 Webhook - Feedback List": {
+      "main": [
+        [
+          {
+            "node": "📋 Code - Build Filters",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "📋 Code - Build Filters": {
+      "main": [
+        [
+          {
+            "node": "🗄️ Airtable - List",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🗄️ Airtable - List": {
+      "main": [
+        [
+          {
+            "node": "📋 Code - Format List",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "📋 Code - Format List": {
+      "main": [
+        [
+          {
+            "node": "📤 Respond - List",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "✅ Webhook - Feedback Approve": {
+      "main": [
+        [
+          {
+            "node": "✅ Code - Validate Approve",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "✅ Code - Validate Approve": {
+      "main": [
+        [
+          {
+            "node": "✅ Code - Format for Airtable",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "✅ Code - Format for Airtable": {
+      "main": [
+        [
+          {
+            "node": "✅ Airtable - Update Feedback",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "✅ Airtable - Update Feedback": {
+      "main": [
+        [
+          {
+            "node": "🔀 IF - Should Publish?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🔀 IF - Should Publish?": {
+      "main": [
+        [
+          {
+            "node": "🔍 Airtable - Find Client",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "📤 Respond - Approve (No Deploy)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🔍 Airtable - Find Client": {
+      "main": [
+        [
+          {
+            "node": "🔗 Code - Get Build Hook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🔗 Code - Get Build Hook": {
+      "main": [
+        [
+          {
+            "node": "🚀 HTTP - Netlify Build Hook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🚀 HTTP - Netlify Build Hook": {
+      "main": [
+        [
+          {
+            "node": "📤 Respond - Approve OK",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [],
+  "triggerCount": 3,
+  "updatedAt": "2025-10-15T02:50:00.000Z",
+  "versionId": "1"
+}
+
+
+

@@ -1,0 +1,176 @@
+{
+  "name": "admin_api_audit_statistics",
+  "description": "Workflow modular para api/audit/statistics - Módulo ADMIN",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "api/audit/statistics",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "webhook-audit-statistics",
+      "name": "🔒 Webhook - Audit Statistics",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [
+        260,
+        13800
+      ],
+      "webhookId": "elevea-audit-statistics"
+    },
+    {
+      "parameters": {
+        "jsCode": "// FUNÇÃO: audit_get_statistics (do GAS linha 1430)\nconst out = [];\nfor (const { json } of items) {\n  const { site, siteSlug, range = '30d' } = json.body || {};\n  const normalizedSite = (site || siteSlug || '').toUpperCase();\n  \n  // Calcular cutoff date\n  const days = range === '7d' ? 7 : range === '30d' ? 30 : 90;\n  const cutoffDate = new Date();\n  cutoffDate.setDate(cutoffDate.getDate() - days);\n  \n  let searchFormula = `{timestamp}>='${cutoffDate.toISOString()}'`;\n  if (normalizedSite) {\n    searchFormula = `AND({site}='${normalizedSite}', ${searchFormula})`;\n  }\n  \n  out.push({\n    json: {\n      siteSlug: normalizedSite || 'ALL',\n      range: range,\n      cutoffDate: cutoffDate.toISOString(),\n      searchFormula: searchFormula,\n      needsAdminCheck: true,\n      timestamp: new Date().toISOString()\n    }\n  });\n}\nreturn out;"
+      },
+      "id": "code-audit-stats-prep",
+      "name": "📝 Code - Prepare Stats Query",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        460,
+        13800
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "list",
+        "base": {
+          "__rl": true,
+          "value": "appELEVEA",
+          "mode": "list"
+        },
+        "table": {
+          "__rl": true,
+          "value": "audit_logs",
+          "mode": "list"
+        },
+        "returnAll": false,
+        "limit": 10000,
+        "options": {
+          "filterByFormula": "={{ $json.searchFormula }}"
+        }
+      },
+      "id": "airtable-list-audit-for-stats",
+      "name": "🗄️ Airtable - List Audit Logs",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [
+        660,
+        13800
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Agregar estatísticas de audit (baseado no GAS)\nconst logs = items.map(i => i.json.fields || i.json);\n\n// Total eventos\nconst total = logs.length;\n\n// Por categoria\nconst byCategory = {};\nlogs.forEach(log => {\n  const cat = log.category || 'other';\n  byCategory[cat] = (byCategory[cat] || 0) + 1;\n});\n\n// Por severity\nconst bySeverity = {};\nlogs.forEach(log => {\n  const sev = log.severity || 'info';\n  bySeverity[sev] = (bySeverity[sev] || 0) + 1;\n});\n\n// Por usuário\nconst byUser = {};\nlogs.forEach(log => {\n  const user = log.userId || 'system';\n  byUser[user] = (byUser[user] || 0) + 1;\n});\n\n// Por site\nconst bySite = {};\nlogs.forEach(log => {\n  const site = log.site || 'unknown';\n  bySite[site] = (bySite[site] || 0) + 1;\n});\n\n// Top ações\nconst actionCounts = {};\nlogs.forEach(log => {\n  const action = log.action || 'unknown';\n  actionCounts[action] = (actionCounts[action] || 0) + 1;\n});\nconst topActions = Object.entries(actionCounts)\n  .map(([action, count]) => ({ action, count }))\n  .sort((a, b) => b.count - a.count)\n  .slice(0, 10);\n\n// Timeline diária\nconst dailyStats = {};\nlogs.forEach(log => {\n  const date = new Date(log.timestamp).toISOString().split('T')[0];\n  if (!dailyStats[date]) dailyStats[date] = 0;\n  dailyStats[date]++;\n});\n\nconst dailyArray = Object.entries(dailyStats)\n  .map(([date, count]) => ({ date, count }))\n  .sort((a, b) => new Date(a.date) - new Date(b.date));\n\nconst out = [{\n  json: {\n    success: true,\n    data: {\n      total: total,\n      byCategory: byCategory,\n      bySeverity: bySeverity,\n      byUser: byUser,\n      bySite: bySite,\n      topActions: topActions,\n      dailyStats: dailyArray\n    },\n    timestamp: new Date().toISOString()\n  }\n}];\nreturn out;"
+      },
+      "id": "code-aggregate-audit-stats",
+      "name": "📊 Code - Aggregate Stats",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        860,
+        13800
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {
+          "headers": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          }
+        }
+      },
+      "id": "respond-audit-statistics",
+      "name": "📤 Respond - Audit Stats",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1060,
+        13800
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { success: true, message: '🔒 Webhook - Audit Statistics processado', timestamp: new Date().toISOString() } }}",
+        "options": {}
+      },
+      "id": "respond-webhook-audit-statistics",
+      "name": "📤 Respond - Audit Statistics",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        800,
+        100
+      ]
+    }
+  ],
+  "connections": {
+    "webhook-audit-statistics": {
+      "main": [
+        [
+          {
+            "node": "code-audit-stats-prep",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "respond-webhook-audit-statistics",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "code-audit-stats-prep": {
+      "main": [
+        [
+          {
+            "node": "airtable-list-audit-for-stats",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "airtable-list-audit-for-stats": {
+      "main": [
+        [
+          {
+            "node": "code-aggregate-audit-stats",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "code-aggregate-audit-stats": {
+      "main": [
+        [
+          {
+            "node": "respond-audit-statistics",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": [
+    "modular",
+    "elevea",
+    "admin"
+  ]
+}

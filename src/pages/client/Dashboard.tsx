@@ -428,19 +428,21 @@ export default function ClientDashboard() {
       try {
         // Inclui PIN VIP se disponível
         const pinParam = vipPin ? `&pin=${encodeURIComponent(vipPin)}` : "";
-        const url = `/.netlify/functions/client-plan?site=${encodeURIComponent(user!.siteSlug!)}&email=${encodeURIComponent(
-          user!.email
-        )}${pinParam}`;
+        const url = `/.netlify/functions/api/client/plan`;
         console.log("📡 Fetching plan from:", url);
         
-        const r = await getJSON<{
+        const r = await postJSON<{
           ok: boolean;
           vip: boolean;
           plan: string;
           status?: string;
           nextCharge?: string | null;
           lastPayment?: { date: string; amount: number } | null;
-        }>(url, PLAN_TIMEOUT_MS);
+        }>(url, {
+          siteSlug: user!.siteSlug!,
+          email: user!.email,
+          pin: vipPin || undefined
+        }, PLAN_TIMEOUT_MS);
         
         console.log("📊 Plan response:", r);
 

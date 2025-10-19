@@ -1,0 +1,226 @@
+{
+  "timestamp": "2025-10-12T07:06:47.354Z",
+  "optimization_rules": {
+    "AUTH": {
+      "group": [
+        "auth_api_auth_login",
+        "auth_api_auth_set_password",
+        "auth_api_auth_me",
+        "auth_api_auth_password_reset_request",
+        "auth_api_auth_password_reset_confirm"
+      ],
+      "final_name": "auth_complete_system",
+      "description": "Sistema completo de autenticação - login, senha, reset e perfil"
+    },
+    "BILLING": {
+      "group": [
+        "billing_api_mercadopago_webhook"
+      ],
+      "final_name": "billing_mercado_pago",
+      "description": "Webhook e processamento do Mercado Pago"
+    },
+    "BILLING_CLIENT": {
+      "group": [
+        "billing_api_client_plan",
+        "billing_api_client_status",
+        "billing_api_admin_toggle"
+      ],
+      "final_name": "billing_client_management",
+      "description": "Gerenciamento de planos, status e controles administrativos"
+    },
+    "WHATSAPP_BUSINESS": {
+      "group": [
+        "whatsapp_api_whatsapp_send_bulk",
+        "whatsapp_api_whatsapp_webhook_verify"
+      ],
+      "final_name": "whatsapp_business_api",
+      "description": "WhatsApp Business API - disparos em massa e verificação"
+    },
+    "WHATSAPP_EVOLUTION": {
+      "group": [
+        "whatsapp_api_whatsapp_send_ai",
+        "whatsapp_api_whatsapp_evolution_webhook"
+      ],
+      "final_name": "whatsapp_evolution_api",
+      "description": "Evolution API - mensagens com IA e webhook"
+    },
+    "WHATSAPP_CONTACTS": {
+      "group": [
+        "whatsapp_api_whatsapp_contacts",
+        "whatsapp_api_whatsapp_contacts_import",
+        "whatsapp_api_whatsapp_contacts_update"
+      ],
+      "final_name": "whatsapp_contact_management",
+      "description": "Gerenciamento completo de contatos WhatsApp"
+    },
+    "WHATSAPP_TEMPLATES": {
+      "group": [
+        "whatsapp_api_whatsapp_templates",
+        "whatsapp_api_whatsapp_templates_upsert",
+        "whatsapp_api_whatsapp_messages"
+      ],
+      "final_name": "whatsapp_template_messages",
+      "description": "Templates e histórico de mensagens"
+    },
+    "CONTENT_FEEDBACK": {
+      "group": [
+        "content_api_feedback_submit",
+        "content_api_feedback_list",
+        "content_api_feedback_approve"
+      ],
+      "final_name": "content_feedback_system",
+      "description": "Sistema completo de feedbacks"
+    },
+    "CONTENT_LEADS": {
+      "group": [
+        "content_api_leads_capture",
+        "content_api_leads_list"
+      ],
+      "final_name": "content_leads_management",
+      "description": "Captura e gerenciamento de leads"
+    },
+    "CONTENT_GOOGLE": {
+      "group": [
+        "content_api_google_reviews",
+        "content_api_google_save_credentials"
+      ],
+      "final_name": "content_google_reviews",
+      "description": "Google Reviews e credenciais"
+    },
+    "SITE_STRUCTURE": {
+      "group": [
+        "site_management_api_site_structure",
+        "site_management_api_site_structure_save"
+      ],
+      "final_name": "site_structure_management",
+      "description": "Gerenciamento da estrutura do site"
+    },
+    "SITE_SETTINGS": {
+      "group": [
+        "site_management_api_site_settings",
+        "site_management_api_site_settings_save"
+      ],
+      "final_name": "site_settings_management",
+      "description": "Configurações do site"
+    },
+    "SITE_SECTIONS": {
+      "group": [
+        "site_management_api_site_sections",
+        "site_management_api_site_sections_upsert",
+        "site_management_api_site_sections_bootstrap"
+      ],
+      "final_name": "site_sections_management",
+      "description": "Gerenciamento de seções do site"
+    },
+    "ECOMMERCE_PRODUCTS": {
+      "group": [
+        "ecommerce_api_ecommerce_products",
+        "ecommerce_api_ecommerce_products_create",
+        "ecommerce_api_ecommerce_products_update",
+        "ecommerce_api_ecommerce_products_delete"
+      ],
+      "final_name": "ecommerce_products_management",
+      "description": "Gerenciamento completo de produtos"
+    },
+    "ECOMMERCE_ORDERS": {
+      "group": [
+        "ecommerce_api_ecommerce_orders_create",
+        "ecommerce_api_ecommerce_orders",
+        "ecommerce_api_ecommerce_orders_update"
+      ],
+      "final_name": "ecommerce_orders_management",
+      "description": "Gerenciamento de pedidos"
+    },
+    "APPOINTMENTS": {
+      "group": [
+        "appointments_api_appointments_list",
+        "appointments_api_appointments_create",
+        "appointments_api_appointments_cancel",
+        "appointments_api_appointments_confirm"
+      ],
+      "final_name": "appointments_management",
+      "description": "Gerenciamento de agendamentos"
+    },
+    "ADMIN_DASHBOARD": {
+      "group": [
+        "admin_api_admin_dashboard",
+        "admin_api_admin_clients"
+      ],
+      "final_name": "admin_dashboard_clients",
+      "description": "Dashboard administrativo e gerenciamento de clientes"
+    },
+    "ADMIN_AUDIT": {
+      "group": [
+        "admin_api_audit_logs",
+        "admin_api_audit_security_alerts",
+        "admin_api_audit_alerts_resolve",
+        "admin_api_audit_statistics"
+      ],
+      "final_name": "admin_audit_system",
+      "description": "Sistema completo de auditoria"
+    },
+    "ONBOARDING": {
+      "group": [
+        "onboarding_api_onboarding_save",
+        "onboarding_api_onboarding_prompt"
+      ],
+      "final_name": "onboarding_system",
+      "description": "Sistema de onboarding"
+    },
+    "ANALYTICS": {
+      "group": [
+        "analytics_api_analytics_track",
+        "analytics_api_analytics_dashboard"
+      ],
+      "final_name": "analytics_complete",
+      "description": "Sistema completo de analytics"
+    },
+    "MODULES": {
+      "group": [
+        "modules_api_modules_list",
+        "modules_api_modules_toggle"
+      ],
+      "final_name": "modules_management",
+      "description": "Gerenciamento de módulos"
+    },
+    "TEMPLATES": {
+      "group": [
+        "templates_api_templates_list",
+        "templates_api_templates_apply"
+      ],
+      "final_name": "templates_management",
+      "description": "Gerenciamento de templates"
+    },
+    "MULTI_LANGUAGE": {
+      "group": [
+        "multi_language_api_multi_language_settings",
+        "multi_language_api_multi_language_translate",
+        "multi_language_api_multi_language_languages"
+      ],
+      "final_name": "multi_language_system",
+      "description": "Sistema multi-idioma completo"
+    },
+    "MARKETPLACE": {
+      "group": [
+        "marketplace_api_marketplace_purchase",
+        "marketplace_api_marketplace_rate",
+        "marketplace_api_marketplace_categories",
+        "marketplace_api_marketplace_my_purchases"
+      ],
+      "final_name": "marketplace_system",
+      "description": "Sistema completo de marketplace"
+    }
+  },
+  "statistics": {
+    "total_original": 55,
+    "total_optimized": 20,
+    "modules_processed": 24,
+    "workflows_merged": 55
+  },
+  "benefits": {
+    "reduced_complexity": "Menos workflows para gerenciar",
+    "better_performance": "Workflows menores e mais focados",
+    "easier_maintenance": "Funcionalidades relacionadas agrupadas",
+    "improved_scalability": "Estrutura mais modular e flexível"
+  }
+}

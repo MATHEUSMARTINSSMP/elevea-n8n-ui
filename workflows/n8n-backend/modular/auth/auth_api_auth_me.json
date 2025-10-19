@@ -1,0 +1,194 @@
+{
+  "name": "auth_api_auth_me",
+  "description": "Workflow modular para api/auth/me - Módulo AUTH",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "api/auth/me",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "webhook-user-me",
+      "name": "👤 Webhook - User Me",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [
+        260,
+        900
+      ],
+      "webhookId": "elevea-user-me"
+    },
+    {
+      "parameters": {
+        "jsCode": "// FUNÇÃO: user_me (do GAS)\nconst out = [];\nfor (const { json } of items) {\n  const { email, token } = json.body || {};\n  \n  if (!email) {\n    out.push({\n      json: {\n        success: false,\n        error: 'Email é obrigatório',\n        timestamp: new Date().toISOString()\n      }\n    });\n    continue;\n  }\n  \n  out.push({\n    json: {\n      success: true,\n      email: email.toLowerCase().trim(),\n      needsData: true,\n      timestamp: new Date().toISOString()\n    }\n  });\n}\nreturn out;"
+      },
+      "id": "code-user-me",
+      "name": "👤 Code - User Me",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        460,
+        900
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "search",
+        "base": {
+          "__rl": true,
+          "value": "appELEVEA",
+          "mode": "list"
+        },
+        "table": {
+          "__rl": true,
+          "value": "users",
+          "mode": "list"
+        },
+        "filterByFormula": "=AND({email}='{{ $json.email }}')",
+        "options": {}
+      },
+      "id": "airtable-search-user-me",
+      "name": "🗄️ Airtable - Search User Me",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [
+        660,
+        900
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "search",
+        "base": {
+          "__rl": true,
+          "value": "appELEVEA",
+          "mode": "list"
+        },
+        "table": {
+          "__rl": true,
+          "value": "clients",
+          "mode": "list"
+        },
+        "filterByFormula": "=AND({email}='{{ $json.fields.email }}')",
+        "options": {}
+      },
+      "id": "airtable-search-client-me",
+      "name": "🗄️ Airtable - Search Client Me",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [
+        860,
+        900
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Mesclar dados user + client\nconst out = [];\nfor (const { json } of items) {\n  const user = json.fields || {};\n  const role = user.role || 'client';\n  const siteSlug = user.site_slug || user.email?.split('@')[0].replace(/[^a-z0-9]/gi, '-');\n  const plan = user.plan || 'essential';\n  const isVip = plan === 'vip';\n  \n  const coreFeatures = ['basic-website', 'google-my-business'];\n  const vipFeatures = [\n    'ai-copywriter', 'auto-seo', 'lead-scoring', 'whatsapp-chatbot',\n    'appointment-scheduling', 'multi-language', 'ecommerce',\n    'premium-templates', 'white-label', 'audit-logs', 'feedback-system'\n  ];\n  \n  out.push({\n    json: {\n      success: true,\n      user: {\n        email: user.email,\n        role: role,\n        siteSlug: siteSlug,\n        plan: plan,\n        status: user.status || 'active',\n        createdAt: user.created_at,\n        features: isVip ? [...coreFeatures, ...vipFeatures] : coreFeatures\n      },\n      timestamp: new Date().toISOString()\n    }\n  });\n}\nreturn out;"
+      },
+      "id": "code-merge-user-data",
+      "name": "📊 Code - Merge User Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1060,
+        900
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {
+          "headers": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          }
+        }
+      },
+      "id": "respond-user-me",
+      "name": "📤 Respond - User Me",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1260,
+        900
+      ]
+    }
+  ],
+  "connections": {
+    "webhook-user-me": {
+      "main": [
+        [
+          {
+            "node": "code-user-me",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "respond-user-me",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "code-user-me": {
+      "main": [
+        [
+          {
+            "node": "airtable-search-user-me",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "airtable-search-user-me": {
+      "main": [
+        [
+          {
+            "node": "airtable-search-client-me",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "airtable-search-client-me": {
+      "main": [
+        [
+          {
+            "node": "code-merge-user-data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "code-merge-user-data": {
+      "main": [
+        [
+          {
+            "node": "respond-user-me",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": [
+    "modular",
+    "elevea",
+    "auth"
+  ]
+}

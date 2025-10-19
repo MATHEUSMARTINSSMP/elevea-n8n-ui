@@ -1,0 +1,160 @@
+{
+  "name": "content_api_feedback_submit",
+  "description": "Workflow modular para api/feedback/submit - Módulo CONTENT",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "api/feedback/submit",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "webhook-feedback-submit",
+      "name": "💬 Webhook - Feedback Submit",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [
+        260,
+        3900
+      ],
+      "webhookId": "elevea-feedback-submit"
+    },
+    {
+      "parameters": {
+        "jsCode": "// FUNÇÃO: feedback (do GAS)\nconst out = [];\nfor (const { json } of items) {\n  const { siteSlug, clientName, clientEmail, rating, comment } = json.body || {};\n  \n  if (!siteSlug || !clientName || !rating) {\n    out.push({\n      json: {\n        success: false,\n        error: 'siteSlug, clientName e rating são obrigatórios',\n        timestamp: new Date().toISOString()\n      }\n    });\n    continue;\n  }\n  \n  if (rating < 1 || rating > 5) {\n    out.push({\n      json: {\n        success: false,\n        error: 'rating deve ser entre 1 e 5',\n        timestamp: new Date().toISOString()\n      }\n    });\n    continue;\n  }\n  \n  out.push({\n    json: {\n      siteSlug,\n      clientName,\n      clientEmail: clientEmail || null,\n      rating,\n      comment: comment || '',\n      status: 'pending',\n      timestamp: new Date().toISOString()\n    }\n  });\n}\nreturn out;"
+      },
+      "id": "code-feedback-submit",
+      "name": "💬 Code - Feedback Submit",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        460,
+        3900
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "base": {
+          "__rl": true,
+          "value": "appELEVEA",
+          "mode": "list"
+        },
+        "table": {
+          "__rl": true,
+          "value": "feedbacks",
+          "mode": "list"
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldName": "site_slug",
+              "fieldValue": "={{ $json.siteSlug }}"
+            },
+            {
+              "fieldName": "client_name",
+              "fieldValue": "={{ $json.clientName }}"
+            },
+            {
+              "fieldName": "client_email",
+              "fieldValue": "={{ $json.clientEmail }}"
+            },
+            {
+              "fieldName": "rating",
+              "fieldValue": "={{ $json.rating }}"
+            },
+            {
+              "fieldName": "comment",
+              "fieldValue": "={{ $json.comment }}"
+            },
+            {
+              "fieldName": "status",
+              "fieldValue": "pending"
+            }
+          ]
+        }
+      },
+      "id": "airtable-insert-feedback",
+      "name": "🗄️ Airtable - Insert Feedback",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [
+        660,
+        3900
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { success: true, message: 'Feedback enviado com sucesso! Obrigado pela avaliação.', timestamp: new Date().toISOString() } }}",
+        "options": {
+          "headers": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          }
+        }
+      },
+      "id": "respond-feedback-submit",
+      "name": "📤 Respond - Feedback Submit",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        860,
+        3900
+      ]
+    }
+  ],
+  "connections": {
+    "webhook-feedback-submit": {
+      "main": [
+        [
+          {
+            "node": "code-feedback-submit",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "respond-feedback-submit",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "code-feedback-submit": {
+      "main": [
+        [
+          {
+            "node": "airtable-insert-feedback",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "airtable-insert-feedback": {
+      "main": [
+        [
+          {
+            "node": "respond-feedback-submit",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": [
+    "modular",
+    "elevea",
+    "content"
+  ]
+}

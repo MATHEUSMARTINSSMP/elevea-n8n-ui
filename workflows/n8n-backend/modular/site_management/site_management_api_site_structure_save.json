@@ -1,0 +1,378 @@
+{
+  "name": "site_management_api_site_structure_save",
+  "description": "Workflow modular para api/site/structure/save - Módulo SITE_MANAGEMENT",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "api/site/structure/save",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "webhook-save-site-structure",
+      "name": "🏗️ Webhook - Save Site Structure",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [
+        260,
+        6700
+      ],
+      "webhookId": "elevea-save-site-structure"
+    },
+    {
+      "parameters": {
+        "jsCode": "// FUNÇÃO: save_site_structure (do GAS)\nconst out = [];\nfor (const { json } of items) {\n  const { siteSlug, sections, pages, theme, layout, navigation, footer } = json.body || {};\n  \n  if (!siteSlug || !sections) {\n    out.push({\n      json: {\n        success: false,\n        error: 'siteSlug e sections são obrigatórios',\n        timestamp: new Date().toISOString()\n      }\n    });\n    continue;\n  }\n  \n  out.push({\n    json: {\n      siteSlug,\n      sections: JSON.stringify(sections),\n      pages: JSON.stringify(pages || []),\n      theme: theme || 'default',\n      layout: layout || 'standard',\n      navigation: JSON.stringify(navigation || {}),\n      footer: JSON.stringify(footer || {}),\n      timestamp: new Date().toISOString()\n    }\n  });\n}\nreturn out;"
+      },
+      "id": "code-save-site-structure",
+      "name": "🏗️ Code - Save Site Structure",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        460,
+        6700
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "search",
+        "base": {
+          "__rl": true,
+          "value": "appELEVEA",
+          "mode": "list"
+        },
+        "table": {
+          "__rl": true,
+          "value": "site_structures",
+          "mode": "list"
+        },
+        "filterByFormula": "=AND({siteSlug}='{{ $json.siteSlug }}')",
+        "options": {}
+      },
+      "id": "airtable-check-site-exists",
+      "name": "🗄️ Airtable - Check Site Exists",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [
+        660,
+        6700
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json.id ? true : false }}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "if-site-exists",
+      "name": "🔀 IF - Site Exists",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        860,
+        6700
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "base": {
+          "__rl": true,
+          "value": "appELEVEA",
+          "mode": "list"
+        },
+        "table": {
+          "__rl": true,
+          "value": "site_structures",
+          "mode": "list"
+        },
+        "id": "={{ $json.id }}",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldName": "sections",
+              "fieldValue": "={{ $json.sections }}"
+            },
+            {
+              "fieldName": "pages",
+              "fieldValue": "={{ $json.pages }}"
+            },
+            {
+              "fieldName": "theme",
+              "fieldValue": "={{ $json.theme }}"
+            },
+            {
+              "fieldName": "layout",
+              "fieldValue": "={{ $json.layout }}"
+            },
+            {
+              "fieldName": "navigation",
+              "fieldValue": "={{ $json.navigation }}"
+            },
+            {
+              "fieldName": "footer",
+              "fieldValue": "={{ $json.footer }}"
+            },
+            {
+              "fieldName": "updated_at",
+              "fieldValue": "={{ new Date().toISOString() }}"
+            }
+          ]
+        }
+      },
+      "id": "airtable-update-site-structure",
+      "name": "🗄️ Airtable - Update Site Structure",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [
+        1060,
+        6600
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://api.netlify.com/build_hooks/{{ $env.NETLIFY_BUILD_HOOK }}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ {\n  \"trigger_title\": \"Estrutura do site atualizada: \" + $json.siteSlug,\n  \"trigger_branch\": \"main\"\n} }}",
+        "options": {}
+      },
+      "id": "http-netlify-rebuild-structure",
+      "name": "🏗️ HTTP - Netlify Rebuild Structure",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1260,
+        6700
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { success: true, message: 'Estrutura do site salva', siteSlug: $json.siteSlug, timestamp: new Date().toISOString() } }}",
+        "options": {
+          "headers": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          }
+        }
+      },
+      "id": "respond-save-site-structure",
+      "name": "📤 Respond - Save Site Structure",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1460,
+        6700
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { success: true, message: '🔀 IF - Site Exists processado', timestamp: new Date().toISOString() } }}",
+        "options": {}
+      },
+      "id": "respond-if-site-exists",
+      "name": "📤 Respond - Site Exists",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        800,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "base": {
+          "__rl": true,
+          "value": "appELEVEA",
+          "mode": "list"
+        },
+        "table": {
+          "__rl": true,
+          "value": "site_structures",
+          "mode": "list"
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldName": "site_slug",
+              "fieldValue": "={{ $json.siteSlug }}"
+            },
+            {
+              "fieldName": "sections",
+              "fieldValue": "={{ $json.sections }}"
+            },
+            {
+              "fieldName": "pages",
+              "fieldValue": "={{ $json.pages }}"
+            },
+            {
+              "fieldName": "theme",
+              "fieldValue": "={{ $json.theme }}"
+            },
+            {
+              "fieldName": "layout",
+              "fieldValue": "={{ $json.layout }}"
+            },
+            {
+              "fieldName": "navigation",
+              "fieldValue": "={{ $json.navigation }}"
+            },
+            {
+              "fieldName": "footer",
+              "fieldValue": "={{ $json.footer }}"
+            }
+          ]
+        }
+      },
+      "id": "airtable-insert-site-structure",
+      "name": "🗄️ Airtable - Insert Site Structure",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [
+        1060,
+        6800
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { success: true, message: '🗄️ Airtable - Check Site Exists processado', timestamp: new Date().toISOString() } }}",
+        "options": {}
+      },
+      "id": "respond-airtable-check-site-exists",
+      "name": "📤 Respond - Check Site Exists",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        800,
+        100
+      ]
+    }
+  ],
+  "connections": {
+    "webhook-save-site-structure": {
+      "main": [
+        [
+          {
+            "node": "code-save-site-structure",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "respond-save-site-structure",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "code-save-site-structure": {
+      "main": [
+        [
+          {
+            "node": "airtable-check-site-exists",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "respond-save-site-structure",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "airtable-check-site-exists": {
+      "main": [
+        [
+          {
+            "node": "if-site-exists",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "respond-airtable-check-site-exists",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "if-site-exists": {
+      "main": [
+        [
+          {
+            "node": "airtable-update-site-structure",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "respond-if-site-exists",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "airtable-insert-site-structure",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "airtable-update-site-structure": {
+      "main": [
+        [
+          {
+            "node": "http-netlify-rebuild-structure",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "http-netlify-rebuild-structure": {
+      "main": [
+        [
+          {
+            "node": "respond-save-site-structure",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "airtable-insert-site-structure": {
+      "main": [
+        [
+          {
+            "node": "http-netlify-rebuild-structure",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": [
+    "modular",
+    "elevea",
+    "site_management"
+  ]
+}

@@ -1,7 +1,8 @@
 import { Button } from '@/components/ui/button';
 import { WHATSAPP_URL } from '@/lib/whatsapp';
 import { OptimizedHeroImage } from '@/components/ui/optimized-image';
-import heroMockup from '@/assets/hero-mockup.jpg';
+// Usando placeholder.svg que existe no public/
+const heroMockup = '/placeholder.svg';
 
 const Hero = () => {
   return (

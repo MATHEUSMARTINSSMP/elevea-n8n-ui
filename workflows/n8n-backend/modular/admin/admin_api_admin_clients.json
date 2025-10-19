@@ -1,0 +1,165 @@
+{
+  "name": "admin_api_admin_clients",
+  "description": "Workflow modular para api/admin/clients - Módulo ADMIN",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "GET",
+        "path": "api/admin/clients",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "webhook-admin-clients",
+      "name": "👨‍💼 Webhook - Admin Clients",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [
+        260,
+        9300
+      ],
+      "webhookId": "elevea-admin-clients"
+    },
+    {
+      "parameters": {
+        "jsCode": "// FUNÇÃO: list_all_clients_admin (do GAS)\nconst out = [];\nfor (const { json } of items) {\n  const query = json.query || {};\n  const { status, plan, limit } = query;\n  \n  out.push({\n    json: {\n      status: status || 'all',\n      plan: plan || 'all',\n      limit: parseInt(limit) || 100,\n      timestamp: new Date().toISOString()\n    }\n  });\n}\nreturn out;"
+      },
+      "id": "code-admin-clients",
+      "name": "👨‍💼 Code - Admin Clients",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        460,
+        9300
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "list",
+        "base": {
+          "__rl": true,
+          "value": "appELEVEA",
+          "mode": "list"
+        },
+        "table": {
+          "__rl": true,
+          "value": "clients",
+          "mode": "list"
+        },
+        "limit": "={{ $json.limit }}",
+        "options": {
+          "sort": [
+            {
+              "field": "created_at",
+              "direction": "desc"
+            }
+          ]
+        }
+      },
+      "id": "airtable-list-admin-clients",
+      "name": "🗄️ Airtable - List Admin Clients",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [
+        660,
+        9300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Formatar lista de clientes com billing\nconst out = [];\nconst clients = [];\n\nfor (const { json } of items) {\n  const fields = json.fields || {};\n  clients.push({\n    clientId: json.id,\n    siteSlug: fields.siteSlug,\n    email: fields.email,\n    name: fields.name,\n    plan: fields.plan,\n    status: fields.status,\n    lastPayment: fields.last_payment,\n    preapprovalId: fields.preapproval_id,\n    createdAt: fields.created_at,\n    updatedAt: fields.updated_at\n  });\n}\n\nout.push({\n  json: {\n    success: true,\n    clients: clients,\n    count: clients.length,\n    vipCount: clients.filter(c => c.plan === 'vip').length,\n    activeCount: clients.filter(c => c.status === 'active').length,\n    timestamp: new Date().toISOString()\n  }\n});\nreturn out;"
+      },
+      "id": "code-format-admin-clients",
+      "name": "👨‍💼 Code - Format Admin Clients",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        860,
+        9300
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {
+          "headers": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          }
+        }
+      },
+      "id": "respond-admin-clients",
+      "name": "📤 Respond - Admin Clients",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1060,
+        9300
+      ]
+    }
+  ],
+  "connections": {
+    "webhook-admin-clients": {
+      "main": [
+        [
+          {
+            "node": "code-admin-clients",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "respond-admin-clients",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "code-admin-clients": {
+      "main": [
+        [
+          {
+            "node": "airtable-list-admin-clients",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "airtable-list-admin-clients": {
+      "main": [
+        [
+          {
+            "node": "code-format-admin-clients",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "code-format-admin-clients": {
+      "main": [
+        [
+          {
+            "node": "respond-admin-clients",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": [
+    "modular",
+    "elevea",
+    "admin"
+  ]
+}

@@ -1,0 +1,492 @@
+{
+  "name": "templates_management",
+  "description": "Gerenciamento de templates",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "GET",
+        "path": "api/templates/list",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "node_1_webhook-templates-list",
+      "name": "🎨 Webhook - Templates List",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [
+        260,
+        8700
+      ],
+      "webhookId": "elevea-templates-list"
+    },
+    {
+      "parameters": {
+        "jsCode": "// FUNÇÃO: marketplace_templates (do GAS)\nconst out = [];\nfor (const { json } of items) {\n  const query = json.query || {};\n  const { category, plan } = query;\n  \n  out.push({\n    json: {\n      category: category || 'all',\n      plan: plan || 'all',\n      timestamp: new Date().toISOString()\n    }\n  });\n}\nreturn out;"
+      },
+      "id": "node_2_code-templates-list",
+      "name": "🎨 Code - Templates List",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        460,
+        8700
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "list",
+        "base": {
+          "__rl": true,
+          "value": "appELEVEA",
+          "mode": "list"
+        },
+        "table": {
+          "__rl": true,
+          "value": "site_templates",
+          "mode": "list"
+        },
+        "options": {
+          "sort": [
+            {
+              "field": "popularity",
+              "direction": "desc"
+            }
+          ]
+        }
+      },
+      "id": "node_3_airtable-list-templates",
+      "name": "🗄️ Airtable - List Templates",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [
+        660,
+        8700
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Formatar lista de templates\nconst out = [];\nconst templates = [];\n\nfor (const { json } of items) {\n  const fields = json.fields || {};\n  templates.push({\n    templateId: json.id,\n    name: fields.name,\n    description: fields.description,\n    category: fields.category,\n    previewUrl: fields.preview_url,\n    thumbnailUrl: fields.thumbnail_url,\n    requiredPlan: fields.required_plan || 'essential',\n    price: fields.price || 0,\n    isVipOnly: fields.required_plan === 'vip',\n    popularity: fields.popularity || 0,\n    tags: JSON.parse(fields.tags || '[]')\n  });\n}\n\nout.push({\n  json: {\n    success: true,\n    templates: templates,\n    count: templates.length,\n    timestamp: new Date().toISOString()\n  }\n});\nreturn out;"
+      },
+      "id": "node_4_code-format-templates-list",
+      "name": "🎨 Code - Format Templates List",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        860,
+        8700
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {
+          "headers": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          }
+        }
+      },
+      "id": "node_5_respond-templates-list",
+      "name": "📤 Respond - Templates List",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1060,
+        8700
+      ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "api/templates/apply",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "node_6_webhook-template-apply",
+      "name": "🎨 Webhook - Template Apply",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [
+        260,
+        8900
+      ],
+      "webhookId": "elevea-template-apply"
+    },
+    {
+      "parameters": {
+        "jsCode": "// FUNÇÃO: template_purchases (do GAS)\nconst out = [];\nfor (const { json } of items) {\n  const { siteSlug, templateId } = json.body || {};\n  \n  if (!siteSlug || !templateId) {\n    out.push({\n      json: {\n        success: false,\n        error: 'siteSlug e templateId são obrigatórios',\n        timestamp: new Date().toISOString()\n      }\n    });\n    continue;\n  }\n  \n  out.push({ json: { siteSlug, templateId, timestamp: new Date().toISOString() } });\n}\nreturn out;"
+      },
+      "id": "node_7_code-template-apply",
+      "name": "🎨 Code - Template Apply",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        460,
+        8900
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "search",
+        "base": {
+          "__rl": true,
+          "value": "appELEVEA",
+          "mode": "list"
+        },
+        "table": {
+          "__rl": true,
+          "value": "site_templates",
+          "mode": "list"
+        },
+        "filterByFormula": "=AND({id}='{{ $json.templateId }}')",
+        "options": {}
+      },
+      "id": "node_8_airtable-search-template",
+      "name": "🗄️ Airtable - Search Template",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [
+        660,
+        8900
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "search",
+        "base": {
+          "__rl": true,
+          "value": "appELEVEA",
+          "mode": "list"
+        },
+        "table": {
+          "__rl": true,
+          "value": "clients",
+          "mode": "list"
+        },
+        "filterByFormula": "=AND({siteSlug}='{{ $json.siteSlug }}')",
+        "options": {}
+      },
+      "id": "node_9_airtable-check-client-template",
+      "name": "🗄️ Airtable - Check Client Template",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [
+        860,
+        8900
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Validar se cliente pode aplicar template\nconst out = [];\nfor (const { json } of items) {\n  const client = json.fields || {};\n  const template = json.template?.fields || {};\n  const plan = client.plan || 'essential';\n  const isVip = plan === 'vip';\n  const requiredPlan = template.required_plan || 'essential';\n  \n  if (requiredPlan === 'vip' && !isVip) {\n    out.push({\n      json: {\n        success: false,\n        error: 'Template VIP requer plano VIP',\n        requiredPlan: requiredPlan,\n        currentPlan: plan,\n        timestamp: new Date().toISOString()\n      }\n    });\n  } else {\n    out.push({\n      json: {\n        success: true,\n        siteSlug: client.siteSlug,\n        templateId: json.templateId,\n        templateData: template,\n        canApply: true,\n        timestamp: new Date().toISOString()\n      }\n    });\n  }\n}\nreturn out;"
+      },
+      "id": "node_10_code-validate-template-apply",
+      "name": "✅ Code - Validate Template Apply",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1060,
+        8900
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Aplicar template ao site (copiar estrutura)\nconst out = [];\nfor (const { json } of items) {\n  const template = json.templateData || {};\n  \n  out.push({\n    json: {\n      siteSlug: json.siteSlug,\n      sections: template.sections || '[]',\n      pages: template.pages || '[]',\n      theme: template.theme || 'default',\n      layout: template.layout || 'standard',\n      navigation: template.navigation || '{}',\n      footer: template.footer || '{}',\n      templateApplied: json.templateId,\n      timestamp: new Date().toISOString()\n    }\n  });\n}\nreturn out;"
+      },
+      "id": "node_11_code-apply-template-to-site",
+      "name": "🎨 Code - Apply Template To Site",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1260,
+        8900
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "search",
+        "base": {
+          "__rl": true,
+          "value": "appELEVEA",
+          "mode": "list"
+        },
+        "table": {
+          "__rl": true,
+          "value": "site_structures",
+          "mode": "list"
+        },
+        "filterByFormula": "=AND({siteSlug}='{{ $json.siteSlug }}')",
+        "options": {}
+      },
+      "id": "node_12_airtable-search-site-for-template",
+      "name": "🗄️ Airtable - Search Site For Template",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [
+        1460,
+        8900
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "base": {
+          "__rl": true,
+          "value": "appELEVEA",
+          "mode": "list"
+        },
+        "table": {
+          "__rl": true,
+          "value": "site_structures",
+          "mode": "list"
+        },
+        "id": "={{ $json.id }}",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldName": "sections",
+              "fieldValue": "={{ $json.sections }}"
+            },
+            {
+              "fieldName": "pages",
+              "fieldValue": "={{ $json.pages }}"
+            },
+            {
+              "fieldName": "theme",
+              "fieldValue": "={{ $json.theme }}"
+            },
+            {
+              "fieldName": "layout",
+              "fieldValue": "={{ $json.layout }}"
+            },
+            {
+              "fieldName": "template_applied",
+              "fieldValue": "={{ $json.templateApplied }}"
+            },
+            {
+              "fieldName": "updated_at",
+              "fieldValue": "={{ new Date().toISOString() }}"
+            }
+          ]
+        }
+      },
+      "id": "node_13_airtable-apply-template",
+      "name": "🗄️ Airtable - Apply Template",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [
+        1660,
+        8900
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://api.netlify.com/build_hooks/{{ $env.NETLIFY_BUILD_HOOK }}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ {\n  \"trigger_title\": \"Template aplicado: \" + $json.siteSlug,\n  \"trigger_branch\": \"main\"\n} }}",
+        "options": {}
+      },
+      "id": "node_14_http-netlify-rebuild-template",
+      "name": "🏗️ HTTP - Netlify Rebuild Template",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1860,
+        8900
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { success: true, message: 'Template aplicado com sucesso', siteSlug: $json.siteSlug, templateId: $json.templateApplied, timestamp: new Date().toISOString() } }}",
+        "options": {
+          "headers": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          }
+        }
+      },
+      "id": "node_15_respond-template-apply",
+      "name": "📤 Respond - Template Apply",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        2060,
+        8900
+      ]
+    }
+  ],
+  "connections": {
+    "node_1_webhook-templates-list": {
+      "main": [
+        [
+          {
+            "node": "node_2_code-templates-list",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "node_5_respond-templates-list",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "node_2_code-templates-list": {
+      "main": [
+        [
+          {
+            "node": "node_3_airtable-list-templates",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "node_3_airtable-list-templates": {
+      "main": [
+        [
+          {
+            "node": "node_4_code-format-templates-list",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "node_4_code-format-templates-list": {
+      "main": [
+        [
+          {
+            "node": "node_5_respond-templates-list",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "node_6_webhook-template-apply": {
+      "main": [
+        [
+          {
+            "node": "node_7_code-template-apply",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "node_15_respond-template-apply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "node_7_code-template-apply": {
+      "main": [
+        [
+          {
+            "node": "node_8_airtable-search-template",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "node_8_airtable-search-template": {
+      "main": [
+        [
+          {
+            "node": "node_9_airtable-check-client-template",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "node_9_airtable-check-client-template": {
+      "main": [
+        [
+          {
+            "node": "node_10_code-validate-template-apply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "node_10_code-validate-template-apply": {
+      "main": [
+        [
+          {
+            "node": "node_11_code-apply-template-to-site",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "node_11_code-apply-template-to-site": {
+      "main": [
+        [
+          {
+            "node": "node_12_airtable-search-site-for-template",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "node_12_airtable-search-site-for-template": {
+      "main": [
+        [
+          {
+            "node": "node_13_airtable-apply-template",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "node_13_airtable-apply-template": {
+      "main": [
+        [
+          {
+            "node": "node_14_http-netlify-rebuild-template",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "node_14_http-netlify-rebuild-template": {
+      "main": [
+        [
+          {
+            "node": "node_15_respond-template-apply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": [
+    "optimized",
+    "elevea",
+    "modular"
+  ]
+}

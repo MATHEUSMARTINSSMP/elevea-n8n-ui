@@ -1,0 +1,124 @@
+{
+  "name": "ecommerce_api_ecommerce_orders",
+  "description": "Workflow modular para api/ecommerce/orders - Módulo ECOMMERCE",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "GET",
+        "path": "api/ecommerce/orders",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "webhook-orders-list",
+      "name": "🛍️ Webhook - Orders List",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [
+        260,
+        10500
+      ],
+      "webhookId": "elevea-orders-list"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {
+          "headers": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          }
+        }
+      },
+      "id": "respond-orders-list",
+      "name": "📤 Respond - Orders List",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1060,
+        10500
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Processar dados do webhook\nreturn [{ json: $input.first().json }];"
+      },
+      "id": "process-webhook-orders-list",
+      "name": "🔧 Process - 🛍️ Webhook - Orders List",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        400,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { success: true, message: '🔧 Process - 🛍️ Webhook - Order Create processado', timestamp: new Date().toISOString() } }}",
+        "options": {}
+      },
+      "id": "respond-process-webhook-order-create",
+      "name": "📤 Respond - 🛍️ Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        800,
+        100
+      ]
+    }
+  ],
+  "connections": {
+    "webhook-orders-list": {
+      "main": [
+        [
+          {
+            "node": "respond-orders-list",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "process-webhook-orders-list",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "respond-orders-list": {
+      "main": [
+        [
+          {
+            "node": "respond-orders-list",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "process-webhook-orders-list": {
+      "main": [
+        [
+          {
+            "node": "respond-process-webhook-order-create",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": [
+    "modular",
+    "elevea",
+    "ecommerce"
+  ]
+}

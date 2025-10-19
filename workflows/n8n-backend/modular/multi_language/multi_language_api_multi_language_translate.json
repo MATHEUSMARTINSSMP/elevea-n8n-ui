@@ -1,0 +1,137 @@
+{
+  "name": "multi_language_api_multi_language_translate",
+  "description": "Workflow modular para api/multi-language/translate - Módulo MULTI_LANGUAGE",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "api/multi-language/translate",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "webhook-translate",
+      "name": "🌍 Webhook - Translate Content",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [
+        260,
+        14400
+      ],
+      "webhookId": "elevea-translate"
+    },
+    {
+      "parameters": {
+        "jsCode": "// FUNÇÃO: multi_language_translate_content (do GAS linha 6859)\nconst out = [];\nfor (const { json } of items) {\n  const { content, sourceLanguage = 'pt', targetLanguage } = json.body || {};\n  \n  if (!content || !targetLanguage) {\n    out.push({\n      json: {\n        success: false,\n        error: 'Content e targetLanguage são obrigatórios',\n        timestamp: new Date().toISOString()\n      }\n    });\n    continue;\n  }\n  \n  // Validar idioma suportado\n  const supported = ['pt', 'en', 'es', 'fr', 'it', 'de'];\n  if (!supported.includes(targetLanguage)) {\n    out.push({\n      json: {\n        success: false,\n        error: `Idioma ${targetLanguage} não suportado. Use: ${supported.join(', ')}`,\n        timestamp: new Date().toISOString()\n      }\n    });\n    continue;\n  }\n  \n  out.push({\n    json: {\n      content: content,\n      sourceLanguage: sourceLanguage,\n      targetLanguage: targetLanguage,\n      contentLength: content.length,\n      needsVipCheck: true,\n      timestamp: new Date().toISOString()\n    }\n  });\n}\nreturn out;"
+      },
+      "id": "code-translate-prep",
+      "name": "📝 Code - Prepare Translation",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        460,
+        14400
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// TRADUÇÃO MOCK (sem API key)\n// Em produção, substituir por HTTP Request para Google Translate API ou DeepL\nconst out = [];\nfor (const { json } of items) {\n  // Mock: retorna o conteúdo original com prefixo do idioma\n  const translatedContent = `[${json.targetLanguage.toUpperCase()}] ${json.content}`;\n  \n  out.push({\n    json: {\n      success: true,\n      data: {\n        translatedContent: translatedContent,\n        sourceLanguage: json.sourceLanguage,\n        targetLanguage: json.targetLanguage,\n        charactersTranslated: json.content.length,\n        method: 'mock' // trocar para 'google_translate' ou 'deepl' quando integrar\n      },\n      timestamp: new Date().toISOString()\n    }\n  });\n}\nreturn out;\n\n/* \nPARA INTEGRAÇÃO REAL, substituir este node por:\n\nHTTP Request - Google Translate API:\nURL: https://translation.googleapis.com/language/translate/v2\nMethod: POST\nBody:\n{\n  \"q\": \"{{ $json.content }}\",\n  \"source\": \"{{ $json.sourceLanguage }}\",\n  \"target\": \"{{ $json.targetLanguage }}\",\n  \"format\": \"text\",\n  \"key\": \"{{ $env.GOOGLE_TRANSLATE_API_KEY }}\"\n}\n*/"
+      },
+      "id": "code-translate-mock",
+      "name": "🌐 Code - Translate (Mock)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        660,
+        14400
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {
+          "headers": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          }
+        }
+      },
+      "id": "respond-translate",
+      "name": "📤 Respond - Translate",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        860,
+        14400
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { success: true, message: '🌍 Webhook - Translate Content processado', timestamp: new Date().toISOString() } }}",
+        "options": {}
+      },
+      "id": "respond-webhook-translate",
+      "name": "📤 Respond - Translate Content",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        800,
+        100
+      ]
+    }
+  ],
+  "connections": {
+    "webhook-translate": {
+      "main": [
+        [
+          {
+            "node": "code-translate-prep",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "respond-webhook-translate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "code-translate-prep": {
+      "main": [
+        [
+          {
+            "node": "code-translate-mock",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "code-translate-mock": {
+      "main": [
+        [
+          {
+            "node": "respond-translate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": [
+    "modular",
+    "elevea",
+    "multi_language"
+  ]
+}

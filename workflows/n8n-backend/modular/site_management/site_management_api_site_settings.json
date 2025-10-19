@@ -1,0 +1,158 @@
+{
+  "name": "site_management_api_site_settings",
+  "description": "Workflow modular para api/site/settings - Módulo SITE_MANAGEMENT",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "GET",
+        "path": "api/site/settings",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "webhook-site-settings",
+      "name": "⚙️ Webhook - Site Settings",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [
+        260,
+        6900
+      ],
+      "webhookId": "elevea-site-settings"
+    },
+    {
+      "parameters": {
+        "jsCode": "// FUNÇÃO: get_settings / kvGetSettingsBySite_ (do GAS)\nconst out = [];\nfor (const { json } of items) {\n  const query = json.query || {};\n  const { siteSlug } = query;\n  \n  if (!siteSlug) {\n    out.push({\n      json: {\n        success: false,\n        error: 'siteSlug é obrigatório',\n        timestamp: new Date().toISOString()\n      }\n    });\n    continue;\n  }\n  \n  out.push({ json: { siteSlug, timestamp: new Date().toISOString() } });\n}\nreturn out;"
+      },
+      "id": "code-site-settings",
+      "name": "⚙️ Code - Site Settings",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        460,
+        6900
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "search",
+        "base": {
+          "__rl": true,
+          "value": "appELEVEA",
+          "mode": "list"
+        },
+        "table": {
+          "__rl": true,
+          "value": "site_settings",
+          "mode": "list"
+        },
+        "filterByFormula": "=AND({siteSlug}='{{ $json.siteSlug }}')",
+        "options": {}
+      },
+      "id": "airtable-search-site-settings",
+      "name": "🗄️ Airtable - Search Site Settings",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [
+        660,
+        6900
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Formatar configurações do site\nconst out = [];\nfor (const { json } of items) {\n  const fields = json.fields || {};\n  \n  out.push({\n    json: {\n      success: true,\n      siteSlug: fields.site_slug,\n      settings: {\n        seo: JSON.parse(fields.seo || '{}'),\n        analytics: JSON.parse(fields.analytics || '{}'),\n        social: JSON.parse(fields.social || '{}'),\n        contact: JSON.parse(fields.contact || '{}'),\n        features: JSON.parse(fields.features || '{}'),\n        branding: JSON.parse(fields.branding || '{}'),\n        integrations: JSON.parse(fields.integrations || '{}')\n      },\n      timestamp: new Date().toISOString()\n    }\n  });\n}\nreturn out;"
+      },
+      "id": "code-format-site-settings",
+      "name": "⚙️ Code - Format Site Settings",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        860,
+        6900
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {
+          "headers": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          }
+        }
+      },
+      "id": "respond-site-settings",
+      "name": "📤 Respond - Site Settings",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1060,
+        6900
+      ]
+    }
+  ],
+  "connections": {
+    "webhook-site-settings": {
+      "main": [
+        [
+          {
+            "node": "code-site-settings",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "respond-site-settings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "code-site-settings": {
+      "main": [
+        [
+          {
+            "node": "airtable-search-site-settings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "airtable-search-site-settings": {
+      "main": [
+        [
+          {
+            "node": "code-format-site-settings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "code-format-site-settings": {
+      "main": [
+        [
+          {
+            "node": "respond-site-settings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": [
+    "modular",
+    "elevea",
+    "site_management"
+  ]
+}

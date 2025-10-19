@@ -1,0 +1,390 @@
+{
+  "name": "admin_dashboard_clients",
+  "description": "Dashboard administrativo e gerenciamento de clientes",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "GET",
+        "path": "api/admin/dashboard",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "node_1_webhook-admin-dashboard",
+      "name": "👨‍💼 Webhook - Admin Dashboard",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [
+        260,
+        9100
+      ],
+      "webhookId": "elevea-admin-dashboard"
+    },
+    {
+      "parameters": {
+        "jsCode": "// FUNÇÃO: admin_dashboard / getDashboardStats_ (do GAS)\nconst out = [];\nout.push({\n  json: {\n    needsStats: true,\n    timestamp: new Date().toISOString()\n  }\n});\nreturn out;"
+      },
+      "id": "node_2_code-admin-dashboard",
+      "name": "👨‍💼 Code - Admin Dashboard",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        460,
+        9100
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "list",
+        "base": {
+          "__rl": true,
+          "value": "appELEVEA",
+          "mode": "list"
+        },
+        "table": {
+          "__rl": true,
+          "value": "clients",
+          "mode": "list"
+        },
+        "options": {}
+      },
+      "id": "node_3_airtable-list-all-clients-dashboard",
+      "name": "🗄️ Airtable - List All Clients Dashboard",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [
+        660,
+        9100
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "list",
+        "base": {
+          "__rl": true,
+          "value": "appELEVEA",
+          "mode": "list"
+        },
+        "table": {
+          "__rl": true,
+          "value": "leads",
+          "mode": "list"
+        },
+        "limit": 50,
+        "options": {
+          "sort": [
+            {
+              "field": "created_at",
+              "direction": "desc"
+            }
+          ]
+        }
+      },
+      "id": "node_4_airtable-list-recent-leads",
+      "name": "🗄️ Airtable - List Recent Leads",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [
+        860,
+        9100
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "list",
+        "base": {
+          "__rl": true,
+          "value": "appELEVEA",
+          "mode": "list"
+        },
+        "table": {
+          "__rl": true,
+          "value": "billing",
+          "mode": "list"
+        },
+        "options": {
+          "sort": [
+            {
+              "field": "payment_date",
+              "direction": "desc"
+            }
+          ]
+        }
+      },
+      "id": "node_5_airtable-list-billing-dashboard",
+      "name": "🗄️ Airtable - List Billing Dashboard",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [
+        1060,
+        9100
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Processar estatísticas do dashboard admin\nconst out = [];\n\nconst clients = items.filter(i => i.json.table === 'clients').map(i => i.json.fields || {});\nconst leads = items.filter(i => i.json.table === 'leads').map(i => i.json.fields || {});\nconst billings = items.filter(i => i.json.table === 'billing').map(i => i.json.fields || {});\n\nconst totalClients = clients.length;\nconst vipClients = clients.filter(c => c.plan === 'vip').length;\nconst activeClients = clients.filter(c => c.status === 'active').length;\nconst blockedClients = clients.filter(c => c.status === 'blocked').length;\n\nconst totalLeads = leads.length;\nconst newLeads = leads.filter(l => l.status === 'new').length;\nconst avgLeadScore = leads.reduce((sum, l) => sum + (l.score || 0), 0) / totalLeads || 0;\n\nconst totalRevenue = billings.reduce((sum, b) => sum + (b.amount || 0), 0);\nconst monthlyRevenue = billings.filter(b => {\n  const paymentDate = new Date(b.payment_date);\n  const now = new Date();\n  return paymentDate.getMonth() === now.getMonth() && paymentDate.getFullYear() === now.getFullYear();\n}).reduce((sum, b) => sum + (b.amount || 0), 0);\n\nout.push({\n  json: {\n    success: true,\n    stats: {\n      clients: {\n        total: totalClients,\n        vip: vipClients,\n        essential: totalClients - vipClients,\n        active: activeClients,\n        blocked: blockedClients\n      },\n      leads: {\n        total: totalLeads,\n        new: newLeads,\n        averageScore: Math.round(avgLeadScore)\n      },\n      revenue: {\n        total: totalRevenue,\n        monthly: monthlyRevenue,\n        mrr: vipClients * 97\n      }\n    },\n    timestamp: new Date().toISOString()\n  }\n});\nreturn out;"
+      },
+      "id": "node_6_code-process-admin-dashboard",
+      "name": "👨‍💼 Code - Process Admin Dashboard",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1260,
+        9100
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {
+          "headers": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          }
+        }
+      },
+      "id": "node_7_respond-admin-dashboard",
+      "name": "📤 Respond - Admin Dashboard",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1460,
+        9100
+      ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "GET",
+        "path": "api/admin/clients",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "node_8_webhook-admin-clients",
+      "name": "👨‍💼 Webhook - Admin Clients",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [
+        260,
+        9300
+      ],
+      "webhookId": "elevea-admin-clients"
+    },
+    {
+      "parameters": {
+        "jsCode": "// FUNÇÃO: list_all_clients_admin (do GAS)\nconst out = [];\nfor (const { json } of items) {\n  const query = json.query || {};\n  const { status, plan, limit } = query;\n  \n  out.push({\n    json: {\n      status: status || 'all',\n      plan: plan || 'all',\n      limit: parseInt(limit) || 100,\n      timestamp: new Date().toISOString()\n    }\n  });\n}\nreturn out;"
+      },
+      "id": "node_9_code-admin-clients",
+      "name": "👨‍💼 Code - Admin Clients",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        460,
+        9300
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "list",
+        "base": {
+          "__rl": true,
+          "value": "appELEVEA",
+          "mode": "list"
+        },
+        "table": {
+          "__rl": true,
+          "value": "clients",
+          "mode": "list"
+        },
+        "limit": "={{ $json.limit }}",
+        "options": {
+          "sort": [
+            {
+              "field": "created_at",
+              "direction": "desc"
+            }
+          ]
+        }
+      },
+      "id": "node_10_airtable-list-admin-clients",
+      "name": "🗄️ Airtable - List Admin Clients",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [
+        660,
+        9300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Formatar lista de clientes com billing\nconst out = [];\nconst clients = [];\n\nfor (const { json } of items) {\n  const fields = json.fields || {};\n  clients.push({\n    clientId: json.id,\n    siteSlug: fields.siteSlug,\n    email: fields.email,\n    name: fields.name,\n    plan: fields.plan,\n    status: fields.status,\n    lastPayment: fields.last_payment,\n    preapprovalId: fields.preapproval_id,\n    createdAt: fields.created_at,\n    updatedAt: fields.updated_at\n  });\n}\n\nout.push({\n  json: {\n    success: true,\n    clients: clients,\n    count: clients.length,\n    vipCount: clients.filter(c => c.plan === 'vip').length,\n    activeCount: clients.filter(c => c.status === 'active').length,\n    timestamp: new Date().toISOString()\n  }\n});\nreturn out;"
+      },
+      "id": "node_11_code-format-admin-clients",
+      "name": "👨‍💼 Code - Format Admin Clients",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        860,
+        9300
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {
+          "headers": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          }
+        }
+      },
+      "id": "node_12_respond-admin-clients",
+      "name": "📤 Respond - Admin Clients",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1060,
+        9300
+      ]
+    }
+  ],
+  "connections": {
+    "node_1_webhook-admin-dashboard": {
+      "main": [
+        [
+          {
+            "node": "node_2_code-admin-dashboard",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "node_7_respond-admin-dashboard",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "node_2_code-admin-dashboard": {
+      "main": [
+        [
+          {
+            "node": "node_3_airtable-list-all-clients-dashboard",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "node_3_airtable-list-all-clients-dashboard": {
+      "main": [
+        [
+          {
+            "node": "node_4_airtable-list-recent-leads",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "node_4_airtable-list-recent-leads": {
+      "main": [
+        [
+          {
+            "node": "node_5_airtable-list-billing-dashboard",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "node_5_airtable-list-billing-dashboard": {
+      "main": [
+        [
+          {
+            "node": "node_6_code-process-admin-dashboard",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "node_6_code-process-admin-dashboard": {
+      "main": [
+        [
+          {
+            "node": "node_7_respond-admin-dashboard",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "node_8_webhook-admin-clients": {
+      "main": [
+        [
+          {
+            "node": "node_9_code-admin-clients",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "node_12_respond-admin-clients",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "node_9_code-admin-clients": {
+      "main": [
+        [
+          {
+            "node": "node_10_airtable-list-admin-clients",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "node_10_airtable-list-admin-clients": {
+      "main": [
+        [
+          {
+            "node": "node_11_code-format-admin-clients",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "node_11_code-format-admin-clients": {
+      "main": [
+        [
+          {
+            "node": "node_12_respond-admin-clients",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": [
+    "optimized",
+    "elevea",
+    "modular"
+  ]
+}

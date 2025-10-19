@@ -1,0 +1,124 @@
+{
+  "name": "appointments_api_appointments_list",
+  "description": "Workflow modular para api/appointments/list - Módulo APPOINTMENTS",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "GET",
+        "path": "api/appointments/list",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "webhook-appointments-list",
+      "name": "📅 Webhook - Appointments List",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [
+        260,
+        10900
+      ],
+      "webhookId": "elevea-appointments-list"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {
+          "headers": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          }
+        }
+      },
+      "id": "respond-appointments-list",
+      "name": "📤 Respond - Appointments List",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1060,
+        10900
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Processar dados do webhook\nreturn [{ json: $input.first().json }];"
+      },
+      "id": "process-webhook-appointments-list",
+      "name": "🔧 Process - 📅 Webhook - Appointments List",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        400,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { success: true, message: '🔧 Process - 📅 Webhook - Appointments List processado', timestamp: new Date().toISOString() } }}",
+        "options": {}
+      },
+      "id": "respond-process-webhook-appointments-list",
+      "name": "📤 Respond - 📅 Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        800,
+        100
+      ]
+    }
+  ],
+  "connections": {
+    "webhook-appointments-list": {
+      "main": [
+        [
+          {
+            "node": "respond-appointments-list",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "process-webhook-appointments-list",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "respond-appointments-list": {
+      "main": [
+        [
+          {
+            "node": "respond-appointments-list",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "process-webhook-appointments-list": {
+      "main": [
+        [
+          {
+            "node": "respond-process-webhook-appointments-list",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": [
+    "modular",
+    "elevea",
+    "appointments"
+  ]
+}

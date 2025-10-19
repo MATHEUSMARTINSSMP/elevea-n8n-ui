@@ -1,0 +1,477 @@
+{
+  "name": "marketplace_api_marketplace_purchase",
+  "description": "Workflow modular para api/marketplace/purchase - Módulo MARKETPLACE",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "api/marketplace/purchase",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "webhook-marketplace-purchase",
+      "name": "🏪 Webhook - Marketplace Purchase",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [
+        260,
+        14900
+      ],
+      "webhookId": "elevea-marketplace-purchase"
+    },
+    {
+      "parameters": {
+        "jsCode": "// FUNÇÃO: marketplace_purchase_template (do GAS linha 1419)\nconst crypto = require('crypto');\nconst out = [];\n\nfor (const { json } of items) {\n  const { site, siteSlug, templateId, customerEmail } = json.body || {};\n  const normalizedSite = (site || siteSlug || '').toUpperCase();\n  \n  if (!templateId || !customerEmail) {\n    out.push({\n      json: {\n        success: false,\n        error: 'Template ID e customer email são obrigatórios',\n        timestamp: new Date().toISOString()\n      }\n    });\n    continue;\n  }\n  \n  out.push({\n    json: {\n      templateId: templateId,\n      siteSlug: normalizedSite,\n      customerEmail: customerEmail.toLowerCase().trim(),\n      searchFormula: `{id}='${templateId}'`,\n      needsVipCheck: true,\n      timestamp: new Date().toISOString()\n    }\n  });\n}\nreturn out;"
+      },
+      "id": "code-marketplace-purchase-prep",
+      "name": "📝 Code - Prepare Purchase",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        460,
+        14900
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "search",
+        "base": {
+          "__rl": true,
+          "value": "appELEVEA",
+          "mode": "list"
+        },
+        "table": {
+          "__rl": true,
+          "value": "marketplace_templates",
+          "mode": "list"
+        },
+        "filterByFormula": "={{ $json.searchFormula }}",
+        "options": {}
+      },
+      "id": "airtable-search-template-purchase",
+      "name": "🗄️ Airtable - Search Template",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [
+        660,
+        14900
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Gerar licenseKey (usa generateLicenseKey do GAS linha 212)\nconst out = [];\nfor (const { json } of items) {\n  const fields = json.fields || {};\n  \n  // Gerar chave de licença: XXXX-XXXX-XXXX-XXXX\n  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';\n  let licenseKey = '';\n  for (let i = 0; i < 16; i++) {\n    licenseKey += chars.charAt(Math.floor(Math.random() * chars.length));\n    if (i % 4 === 3 && i < 15) licenseKey += '-';\n  }\n  \n  const crypto = require('crypto');\n  const purchaseId = crypto.randomUUID();\n  \n  out.push({\n    json: {\n      purchaseId: purchaseId,\n      templateId: fields.id,\n      templateName: fields.name,\n      templatePrice: fields.price || 0,\n      currency: fields.currency || 'BRL',\n      siteSlug: $node['Code - Prepare Purchase'].json.siteSlug,\n      customerEmail: $node['Code - Prepare Purchase'].json.customerEmail,\n      licenseKey: licenseKey,\n      downloadUrl: `https://elevea.com/downloads/${purchaseId}`,\n      purchaseDate: new Date().toISOString(),\n      status: fields.price > 0 ? 'pending_payment' : 'completed',\n      needsPayment: fields.price > 0,\n      timestamp: new Date().toISOString()\n    }\n  });\n}\nreturn out;"
+      },
+      "id": "code-generate-license",
+      "name": "🔑 Code - Generate License",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        860,
+        14900
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "base": {
+          "__rl": true,
+          "value": "appELEVEA",
+          "mode": "list"
+        },
+        "table": {
+          "__rl": true,
+          "value": "template_purchases",
+          "mode": "list"
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldName": "id",
+              "fieldValue": "={{ $json.purchaseId }}"
+            },
+            {
+              "fieldName": "templateId",
+              "fieldValue": "={{ $json.templateId }}"
+            },
+            {
+              "fieldName": "site",
+              "fieldValue": "={{ $json.siteSlug }}"
+            },
+            {
+              "fieldName": "customerEmail",
+              "fieldValue": "={{ $json.customerEmail }}"
+            },
+            {
+              "fieldName": "pricePaid",
+              "fieldValue": "={{ $json.templatePrice }}"
+            },
+            {
+              "fieldName": "currency",
+              "fieldValue": "={{ $json.currency }}"
+            },
+            {
+              "fieldName": "licenseKey",
+              "fieldValue": "={{ $json.licenseKey }}"
+            },
+            {
+              "fieldName": "downloadUrl",
+              "fieldValue": "={{ $json.downloadUrl }}"
+            },
+            {
+              "fieldName": "purchaseDate",
+              "fieldValue": "={{ $json.purchaseDate }}"
+            },
+            {
+              "fieldName": "status",
+              "fieldValue": "={{ $json.status }}"
+            }
+          ]
+        }
+      },
+      "id": "airtable-save-purchase",
+      "name": "🗄️ Airtable - Save Purchase",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [
+        1060,
+        14900
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json.needsPayment }}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "if-needs-payment",
+      "name": "🔀 IF - Needs Payment?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        1260,
+        14900
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.mercadopago.com/checkout/preferences",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer {{ $json.MP_ACCESS_TOKEN }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ {\\n  items: [{\\n    title: $json.templateName,\\n    quantity: 1,\\n    unit_price: $json.templatePrice\\n  }],\\n  external_reference: $json.purchaseId,\\n  back_urls: {\\n    success: 'https://agenciaelevea.netlify.app/marketplace/success',\\n    failure: 'https://agenciaelevea.netlify.app/marketplace/failure'\\n  }\\n} }}",
+        "options": {}
+      },
+      "id": "http-mp-create-payment",
+      "name": "💳 HTTP - MP Create Payment",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        1460,
+        14800
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Preparar resposta com payment link\nconst out = [];\nfor (const { json } of items) {\n  const paymentLink = json.init_point || null;\n  const inputData = $node['Code - Generate License'].json;\n  \n  out.push({\n    json: {\n      success: true,\n      data: {\n        purchaseId: inputData.purchaseId,\n        licenseKey: inputData.licenseKey,\n        downloadUrl: inputData.downloadUrl,\n        paymentLink: paymentLink,\n        status: 'pending_payment',\n        message: 'Complete o pagamento para liberar o download'\n      },\n      timestamp: new Date().toISOString()\n    }\n  });\n}\nreturn out;"
+      },
+      "id": "code-prep-payment-response",
+      "name": "📝 Code - Prep Payment Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1660,
+        14800
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {
+          "headers": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          }
+        }
+      },
+      "id": "respond-marketplace-purchase",
+      "name": "📤 Respond - Purchase",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1860,
+        14900
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { success: true, message: '🔀 IF - Needs Payment? processado', timestamp: new Date().toISOString() } }}",
+        "options": {}
+      },
+      "id": "respond-if-needs-payment",
+      "name": "📤 Respond - Needs Payment?",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        800,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Template gratuito - resposta direta\nconst out = [];\nfor (const { json } of items) {\n  out.push({\n    json: {\n      success: true,\n      data: {\n        purchaseId: json.purchaseId,\n        licenseKey: json.licenseKey,\n        downloadUrl: json.downloadUrl,\n        status: 'completed',\n        message: 'Download disponível imediatamente'\n      },\n      timestamp: new Date().toISOString()\n    }\n  });\n}\nreturn out;"
+      },
+      "id": "code-free-template-response",
+      "name": "📝 Code - Free Template Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1660,
+        15000
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { success: true, message: '🗄️ Airtable - Save Purchase processado', timestamp: new Date().toISOString() } }}",
+        "options": {}
+      },
+      "id": "respond-airtable-save-purchase",
+      "name": "📤 Respond - Save Purchase",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        800,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { success: true, message: '🔑 Code - Generate License processado', timestamp: new Date().toISOString() } }}",
+        "options": {}
+      },
+      "id": "respond-code-generate-license",
+      "name": "📤 Respond - Generate License",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        800,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { success: true, message: '🗄️ Airtable - Search Template processado', timestamp: new Date().toISOString() } }}",
+        "options": {}
+      },
+      "id": "respond-airtable-search-template-purchase",
+      "name": "📤 Respond - Search Template",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        800,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { success: true, message: '📝 Code - Prepare Purchase processado', timestamp: new Date().toISOString() } }}",
+        "options": {}
+      },
+      "id": "respond-code-marketplace-purchase-prep",
+      "name": "📤 Respond - Prepare Purchase",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        800,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { success: true, message: '🏪 Webhook - Marketplace Purchase processado', timestamp: new Date().toISOString() } }}",
+        "options": {}
+      },
+      "id": "respond-webhook-marketplace-purchase",
+      "name": "📤 Respond - Marketplace Purchase",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        800,
+        100
+      ]
+    }
+  ],
+  "connections": {
+    "webhook-marketplace-purchase": {
+      "main": [
+        [
+          {
+            "node": "code-marketplace-purchase-prep",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "respond-webhook-marketplace-purchase",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "code-marketplace-purchase-prep": {
+      "main": [
+        [
+          {
+            "node": "airtable-search-template-purchase",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "respond-code-marketplace-purchase-prep",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "airtable-search-template-purchase": {
+      "main": [
+        [
+          {
+            "node": "code-generate-license",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "respond-airtable-search-template-purchase",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "code-generate-license": {
+      "main": [
+        [
+          {
+            "node": "airtable-save-purchase",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "respond-code-generate-license",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "airtable-save-purchase": {
+      "main": [
+        [
+          {
+            "node": "if-needs-payment",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "respond-airtable-save-purchase",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "if-needs-payment": {
+      "main": [
+        [
+          {
+            "node": "http-mp-create-payment",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "respond-if-needs-payment",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "code-free-template-response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "http-mp-create-payment": {
+      "main": [
+        [
+          {
+            "node": "code-prep-payment-response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "code-prep-payment-response": {
+      "main": [
+        [
+          {
+            "node": "respond-marketplace-purchase",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "code-free-template-response": {
+      "main": [
+        [
+          {
+            "node": "respond-marketplace-purchase",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": [
+    "modular",
+    "elevea",
+    "marketplace"
+  ]
+}

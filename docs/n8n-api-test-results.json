@@ -1,0 +1,410 @@
+[
+  {
+    "url": "https://fluxos.eleveaagencia.com.br/api/v1/workflows",
+    "method": "GET",
+    "headers": {
+      "Authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJhYWQxMjBlMi1hM2QwLTQ1ZDMtOTMwOC05NzIyYmJmZjIyMzgiLCJpc3MiOiJuOG4iLCJhdWQiOiJwdWJsaWMtYXBpIiwiaWF0IjoxNzYwMDQ5MTUzfQ.Q6Rr-p9MlGpwM3M5IHhyPWvCU2hjqQsowV8SS2ultbE"
+    },
+    "status": 401,
+    "statusText": "Unauthorized",
+    "ok": false,
+    "data": null,
+    "authMethod": "Bearer Token"
+  },
+  {
+    "url": "https://fluxos.eleveaagencia.com.br/api/v1/workflows",
+    "method": "GET",
+    "headers": {
+      "X-N8N-API-KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJhYWQxMjBlMi1hM2QwLTQ1ZDMtOTMwOC05NzIyYmJmZjIyMzgiLCJpc3MiOiJuOG4iLCJhdWQiOiJwdWJsaWMtYXBpIiwiaWF0IjoxNzYwMDQ5MTUzfQ.Q6Rr-p9MlGpwM3M5IHhyPWvCU2hjqQsowV8SS2ultbE"
+    },
+    "status": 401,
+    "statusText": "Unauthorized",
+    "ok": false,
+    "data": null,
+    "authMethod": "X-N8N-API-KEY"
+  },
+  {
+    "url": "https://fluxos.eleveaagencia.com.br/api/v1/workflows",
+    "method": "GET",
+    "headers": {
+      "API-Key": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJhYWQxMjBlMi1hM2QwLTQ1ZDMtOTMwOC05NzIyYmJmZjIyMzgiLCJpc3MiOiJuOG4iLCJhdWQiOiJwdWJsaWMtYXBpIiwiaWF0IjoxNzYwMDQ5MTUzfQ.Q6Rr-p9MlGpwM3M5IHhyPWvCU2hjqQsowV8SS2ultbE"
+    },
+    "status": 401,
+    "statusText": "Unauthorized",
+    "ok": false,
+    "data": null,
+    "authMethod": "API-Key"
+  },
+  {
+    "url": "https://fluxos.eleveaagencia.com.br/api/v1/workflows",
+    "method": "GET",
+    "headers": {
+      "X-API-Key": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJhYWQxMjBlMi1hM2QwLTQ1ZDMtOTMwOC05NzIyYmJmZjIyMzgiLCJpc3MiOiJuOG4iLCJhdWQiOiJwdWJsaWMtYXBpIiwiaWF0IjoxNzYwMDQ5MTUzfQ.Q6Rr-p9MlGpwM3M5IHhyPWvCU2hjqQsowV8SS2ultbE"
+    },
+    "status": 401,
+    "statusText": "Unauthorized",
+    "ok": false,
+    "data": null,
+    "authMethod": "X-API-Key"
+  },
+  {
+    "url": "https://fluxos.eleveaagencia.com.br/api/v1/workflows",
+    "method": "GET",
+    "headers": {
+      "Authorization": "Basic ZXlKaGJHY2lPaUpJVXpJMU5pSXNJblI1Y0NJNklrcFhWQ0o5LmV5SnpkV0lpT2lKaFlXUXhNakJsTWkxaE0yUXdMVFExWkRNdE9UTXdPQzA1TnpJeVltSm1aakl5TXpnaUxDSnBjM01pT2lKdU9HNGlMQ0poZFdRaU9pSndkV0pzYVdNdFlYQnBJaXdpYVdGMElqb3hOell3TURRNU1UVXpmUS5RNlJyLXA5TWxHcHdNM001SUhoeVBXdkNVMmhqcVFzb3dWOFNTMnVsdGJF"
+    },
+    "status": 401,
+    "statusText": "Unauthorized",
+    "ok": false,
+    "data": null,
+    "authMethod": "Authorization Basic"
+  },
+  {
+    "url": "https://fluxos.eleveaagencia.com.br/api/v1/workflows",
+    "method": "GET",
+    "headers": {},
+    "status": 401,
+    "statusText": "Unauthorized",
+    "ok": false,
+    "data": null,
+    "authMethod": "No Auth"
+  },
+  {
+    "url": "https://fluxos.eleveaagencia.com.br/api/workflows",
+    "method": "GET",
+    "headers": {
+      "Authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJhYWQxMjBlMi1hM2QwLTQ1ZDMtOTMwOC05NzIyYmJmZjIyMzgiLCJpc3MiOiJuOG4iLCJhdWQiOiJwdWJsaWMtYXBpIiwiaWF0IjoxNzYwMDQ5MTUzfQ.Q6Rr-p9MlGpwM3M5IHhyPWvCU2hjqQsowV8SS2ultbE"
+    },
+    "error": "Body is unusable: Body has already been read",
+    "ok": false,
+    "authMethod": "Bearer Token"
+  },
+  {
+    "url": "https://fluxos.eleveaagencia.com.br/api/workflows",
+    "method": "GET",
+    "headers": {
+      "X-N8N-API-KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJhYWQxMjBlMi1hM2QwLTQ1ZDMtOTMwOC05NzIyYmJmZjIyMzgiLCJpc3MiOiJuOG4iLCJhdWQiOiJwdWJsaWMtYXBpIiwiaWF0IjoxNzYwMDQ5MTUzfQ.Q6Rr-p9MlGpwM3M5IHhyPWvCU2hjqQsowV8SS2ultbE"
+    },
+    "error": "Body is unusable: Body has already been read",
+    "ok": false,
+    "authMethod": "X-N8N-API-KEY"
+  },
+  {
+    "url": "https://fluxos.eleveaagencia.com.br/api/workflows",
+    "method": "GET",
+    "headers": {
+      "API-Key": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJhYWQxMjBlMi1hM2QwLTQ1ZDMtOTMwOC05NzIyYmJmZjIyMzgiLCJpc3MiOiJuOG4iLCJhdWQiOiJwdWJsaWMtYXBpIiwiaWF0IjoxNzYwMDQ5MTUzfQ.Q6Rr-p9MlGpwM3M5IHhyPWvCU2hjqQsowV8SS2ultbE"
+    },
+    "error": "Body is unusable: Body has already been read",
+    "ok": false,
+    "authMethod": "API-Key"
+  },
+  {
+    "url": "https://fluxos.eleveaagencia.com.br/api/workflows",
+    "method": "GET",
+    "headers": {
+      "X-API-Key": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJhYWQxMjBlMi1hM2QwLTQ1ZDMtOTMwOC05NzIyYmJmZjIyMzgiLCJpc3MiOiJuOG4iLCJhdWQiOiJwdWJsaWMtYXBpIiwiaWF0IjoxNzYwMDQ5MTUzfQ.Q6Rr-p9MlGpwM3M5IHhyPWvCU2hjqQsowV8SS2ultbE"
+    },
+    "error": "Body is unusable: Body has already been read",
+    "ok": false,
+    "authMethod": "X-API-Key"
+  },
+  {
+    "url": "https://fluxos.eleveaagencia.com.br/api/workflows",
+    "method": "GET",
+    "headers": {
+      "Authorization": "Basic ZXlKaGJHY2lPaUpJVXpJMU5pSXNJblI1Y0NJNklrcFhWQ0o5LmV5SnpkV0lpT2lKaFlXUXhNakJsTWkxaE0yUXdMVFExWkRNdE9UTXdPQzA1TnpJeVltSm1aakl5TXpnaUxDSnBjM01pT2lKdU9HNGlMQ0poZFdRaU9pSndkV0pzYVdNdFlYQnBJaXdpYVdGMElqb3hOell3TURRNU1UVXpmUS5RNlJyLXA5TWxHcHdNM001SUhoeVBXdkNVMmhqcVFzb3dWOFNTMnVsdGJF"
+    },
+    "error": "Body is unusable: Body has already been read",
+    "ok": false,
+    "authMethod": "Authorization Basic"
+  },
+  {
+    "url": "https://fluxos.eleveaagencia.com.br/api/workflows",
+    "method": "GET",
+    "headers": {},
+    "error": "Body is unusable: Body has already been read",
+    "ok": false,
+    "authMethod": "No Auth"
+  },
+  {
+    "url": "https://fluxos.eleveaagencia.com.br/workflows",
+    "method": "GET",
+    "headers": {
+      "Authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJhYWQxMjBlMi1hM2QwLTQ1ZDMtOTMwOC05NzIyYmJmZjIyMzgiLCJpc3MiOiJuOG4iLCJhdWQiOiJwdWJsaWMtYXBpIiwiaWF0IjoxNzYwMDQ5MTUzfQ.Q6Rr-p9MlGpwM3M5IHhyPWvCU2hjqQsowV8SS2ultbE"
+    },
+    "error": "Body is unusable: Body has already been read",
+    "ok": false,
+    "authMethod": "Bearer Token"
+  },
+  {
+    "url": "https://fluxos.eleveaagencia.com.br/workflows",
+    "method": "GET",
+    "headers": {
+      "X-N8N-API-KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJhYWQxMjBlMi1hM2QwLTQ1ZDMtOTMwOC05NzIyYmJmZjIyMzgiLCJpc3MiOiJuOG4iLCJhdWQiOiJwdWJsaWMtYXBpIiwiaWF0IjoxNzYwMDQ5MTUzfQ.Q6Rr-p9MlGpwM3M5IHhyPWvCU2hjqQsowV8SS2ultbE"
+    },
+    "error": "Body is unusable: Body has already been read",
+    "ok": false,
+    "authMethod": "X-N8N-API-KEY"
+  },
+  {
+    "url": "https://fluxos.eleveaagencia.com.br/workflows",
+    "method": "GET",
+    "headers": {
+      "API-Key": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJhYWQxMjBlMi1hM2QwLTQ1ZDMtOTMwOC05NzIyYmJmZjIyMzgiLCJpc3MiOiJuOG4iLCJhdWQiOiJwdWJsaWMtYXBpIiwiaWF0IjoxNzYwMDQ5MTUzfQ.Q6Rr-p9MlGpwM3M5IHhyPWvCU2hjqQsowV8SS2ultbE"
+    },
+    "error": "Body is unusable: Body has already been read",
+    "ok": false,
+    "authMethod": "API-Key"
+  },
+  {
+    "url": "https://fluxos.eleveaagencia.com.br/workflows",
+    "method": "GET",
+    "headers": {
+      "X-API-Key": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJhYWQxMjBlMi1hM2QwLTQ1ZDMtOTMwOC05NzIyYmJmZjIyMzgiLCJpc3MiOiJuOG4iLCJhdWQiOiJwdWJsaWMtYXBpIiwiaWF0IjoxNzYwMDQ5MTUzfQ.Q6Rr-p9MlGpwM3M5IHhyPWvCU2hjqQsowV8SS2ultbE"
+    },
+    "error": "Body is unusable: Body has already been read",
+    "ok": false,
+    "authMethod": "X-API-Key"
+  },
+  {
+    "url": "https://fluxos.eleveaagencia.com.br/workflows",
+    "method": "GET",
+    "headers": {
+      "Authorization": "Basic ZXlKaGJHY2lPaUpJVXpJMU5pSXNJblI1Y0NJNklrcFhWQ0o5LmV5SnpkV0lpT2lKaFlXUXhNakJsTWkxaE0yUXdMVFExWkRNdE9UTXdPQzA1TnpJeVltSm1aakl5TXpnaUxDSnBjM01pT2lKdU9HNGlMQ0poZFdRaU9pSndkV0pzYVdNdFlYQnBJaXdpYVdGMElqb3hOell3TURRNU1UVXpmUS5RNlJyLXA5TWxHcHdNM001SUhoeVBXdkNVMmhqcVFzb3dWOFNTMnVsdGJF"
+    },
+    "error": "Body is unusable: Body has already been read",
+    "ok": false,
+    "authMethod": "Authorization Basic"
+  },
+  {
+    "url": "https://fluxos.eleveaagencia.com.br/workflows",
+    "method": "GET",
+    "headers": {},
+    "error": "Body is unusable: Body has already been read",
+    "ok": false,
+    "authMethod": "No Auth"
+  },
+  {
+    "url": "https://fluxos.eleveaagencia.com.br/api/v1/credentials",
+    "method": "GET",
+    "headers": {
+      "Authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJhYWQxMjBlMi1hM2QwLTQ1ZDMtOTMwOC05NzIyYmJmZjIyMzgiLCJpc3MiOiJuOG4iLCJhdWQiOiJwdWJsaWMtYXBpIiwiaWF0IjoxNzYwMDQ5MTUzfQ.Q6Rr-p9MlGpwM3M5IHhyPWvCU2hjqQsowV8SS2ultbE"
+    },
+    "status": 405,
+    "statusText": "Method Not Allowed",
+    "ok": false,
+    "data": null,
+    "authMethod": "Bearer Token"
+  },
+  {
+    "url": "https://fluxos.eleveaagencia.com.br/api/v1/credentials",
+    "method": "GET",
+    "headers": {
+      "X-N8N-API-KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJhYWQxMjBlMi1hM2QwLTQ1ZDMtOTMwOC05NzIyYmJmZjIyMzgiLCJpc3MiOiJuOG4iLCJhdWQiOiJwdWJsaWMtYXBpIiwiaWF0IjoxNzYwMDQ5MTUzfQ.Q6Rr-p9MlGpwM3M5IHhyPWvCU2hjqQsowV8SS2ultbE"
+    },
+    "status": 405,
+    "statusText": "Method Not Allowed",
+    "ok": false,
+    "data": null,
+    "authMethod": "X-N8N-API-KEY"
+  },
+  {
+    "url": "https://fluxos.eleveaagencia.com.br/api/v1/credentials",
+    "method": "GET",
+    "headers": {
+      "API-Key": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJhYWQxMjBlMi1hM2QwLTQ1ZDMtOTMwOC05NzIyYmJmZjIyMzgiLCJpc3MiOiJuOG4iLCJhdWQiOiJwdWJsaWMtYXBpIiwiaWF0IjoxNzYwMDQ5MTUzfQ.Q6Rr-p9MlGpwM3M5IHhyPWvCU2hjqQsowV8SS2ultbE"
+    },
+    "status": 405,
+    "statusText": "Method Not Allowed",
+    "ok": false,
+    "data": null,
+    "authMethod": "API-Key"
+  },
+  {
+    "url": "https://fluxos.eleveaagencia.com.br/api/v1/credentials",
+    "method": "GET",
+    "headers": {
+      "X-API-Key": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJhYWQxMjBlMi1hM2QwLTQ1ZDMtOTMwOC05NzIyYmJmZjIyMzgiLCJpc3MiOiJuOG4iLCJhdWQiOiJwdWJsaWMtYXBpIiwiaWF0IjoxNzYwMDQ5MTUzfQ.Q6Rr-p9MlGpwM3M5IHhyPWvCU2hjqQsowV8SS2ultbE"
+    },
+    "status": 405,
+    "statusText": "Method Not Allowed",
+    "ok": false,
+    "data": null,
+    "authMethod": "X-API-Key"
+  },
+  {
+    "url": "https://fluxos.eleveaagencia.com.br/api/v1/credentials",
+    "method": "GET",
+    "headers": {
+      "Authorization": "Basic ZXlKaGJHY2lPaUpJVXpJMU5pSXNJblI1Y0NJNklrcFhWQ0o5LmV5SnpkV0lpT2lKaFlXUXhNakJsTWkxaE0yUXdMVFExWkRNdE9UTXdPQzA1TnpJeVltSm1aakl5TXpnaUxDSnBjM01pT2lKdU9HNGlMQ0poZFdRaU9pSndkV0pzYVdNdFlYQnBJaXdpYVdGMElqb3hOell3TURRNU1UVXpmUS5RNlJyLXA5TWxHcHdNM001SUhoeVBXdkNVMmhqcVFzb3dWOFNTMnVsdGJF"
+    },
+    "status": 405,
+    "statusText": "Method Not Allowed",
+    "ok": false,
+    "data": null,
+    "authMethod": "Authorization Basic"
+  },
+  {
+    "url": "https://fluxos.eleveaagencia.com.br/api/v1/credentials",
+    "method": "GET",
+    "headers": {},
+    "status": 405,
+    "statusText": "Method Not Allowed",
+    "ok": false,
+    "data": null,
+    "authMethod": "No Auth"
+  },
+  {
+    "url": "https://fluxos.eleveaagencia.com.br/api/credentials",
+    "method": "GET",
+    "headers": {
+      "Authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJhYWQxMjBlMi1hM2QwLTQ1ZDMtOTMwOC05NzIyYmJmZjIyMzgiLCJpc3MiOiJuOG4iLCJhdWQiOiJwdWJsaWMtYXBpIiwiaWF0IjoxNzYwMDQ5MTUzfQ.Q6Rr-p9MlGpwM3M5IHhyPWvCU2hjqQsowV8SS2ultbE"
+    },
+    "error": "Body is unusable: Body has already been read",
+    "ok": false,
+    "authMethod": "Bearer Token"
+  },
+  {
+    "url": "https://fluxos.eleveaagencia.com.br/api/credentials",
+    "method": "GET",
+    "headers": {
+      "X-N8N-API-KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJhYWQxMjBlMi1hM2QwLTQ1ZDMtOTMwOC05NzIyYmJmZjIyMzgiLCJpc3MiOiJuOG4iLCJhdWQiOiJwdWJsaWMtYXBpIiwiaWF0IjoxNzYwMDQ5MTUzfQ.Q6Rr-p9MlGpwM3M5IHhyPWvCU2hjqQsowV8SS2ultbE"
+    },
+    "error": "Body is unusable: Body has already been read",
+    "ok": false,
+    "authMethod": "X-N8N-API-KEY"
+  },
+  {
+    "url": "https://fluxos.eleveaagencia.com.br/api/credentials",
+    "method": "GET",
+    "headers": {
+      "API-Key": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJhYWQxMjBlMi1hM2QwLTQ1ZDMtOTMwOC05NzIyYmJmZjIyMzgiLCJpc3MiOiJuOG4iLCJhdWQiOiJwdWJsaWMtYXBpIiwiaWF0IjoxNzYwMDQ5MTUzfQ.Q6Rr-p9MlGpwM3M5IHhyPWvCU2hjqQsowV8SS2ultbE"
+    },
+    "error": "Body is unusable: Body has already been read",
+    "ok": false,
+    "authMethod": "API-Key"
+  },
+  {
+    "url": "https://fluxos.eleveaagencia.com.br/api/credentials",
+    "method": "GET",
+    "headers": {
+      "X-API-Key": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJhYWQxMjBlMi1hM2QwLTQ1ZDMtOTMwOC05NzIyYmJmZjIyMzgiLCJpc3MiOiJuOG4iLCJhdWQiOiJwdWJsaWMtYXBpIiwiaWF0IjoxNzYwMDQ5MTUzfQ.Q6Rr-p9MlGpwM3M5IHhyPWvCU2hjqQsowV8SS2ultbE"
+    },
+    "error": "Body is unusable: Body has already been read",
+    "ok": false,
+    "authMethod": "X-API-Key"
+  },
+  {
+    "url": "https://fluxos.eleveaagencia.com.br/api/credentials",
+    "method": "GET",
+    "headers": {
+      "Authorization": "Basic ZXlKaGJHY2lPaUpJVXpJMU5pSXNJblI1Y0NJNklrcFhWQ0o5LmV5SnpkV0lpT2lKaFlXUXhNakJsTWkxaE0yUXdMVFExWkRNdE9UTXdPQzA1TnpJeVltSm1aakl5TXpnaUxDSnBjM01pT2lKdU9HNGlMQ0poZFdRaU9pSndkV0pzYVdNdFlYQnBJaXdpYVdGMElqb3hOell3TURRNU1UVXpmUS5RNlJyLXA5TWxHcHdNM001SUhoeVBXdkNVMmhqcVFzb3dWOFNTMnVsdGJF"
+    },
+    "error": "Body is unusable: Body has already been read",
+    "ok": false,
+    "authMethod": "Authorization Basic"
+  },
+  {
+    "url": "https://fluxos.eleveaagencia.com.br/api/credentials",
+    "method": "GET",
+    "headers": {},
+    "error": "Body is unusable: Body has already been read",
+    "ok": false,
+    "authMethod": "No Auth"
+  },
+  {
+    "url": "https://fluxos.eleveaagencia.com.br/credentials",
+    "method": "GET",
+    "headers": {
+      "Authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJhYWQxMjBlMi1hM2QwLTQ1ZDMtOTMwOC05NzIyYmJmZjIyMzgiLCJpc3MiOiJuOG4iLCJhdWQiOiJwdWJsaWMtYXBpIiwiaWF0IjoxNzYwMDQ5MTUzfQ.Q6Rr-p9MlGpwM3M5IHhyPWvCU2hjqQsowV8SS2ultbE"
+    },
+    "error": "Body is unusable: Body has already been read",
+    "ok": false,
+    "authMethod": "Bearer Token"
+  },
+  {
+    "url": "https://fluxos.eleveaagencia.com.br/credentials",
+    "method": "GET",
+    "headers": {
+      "X-N8N-API-KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJhYWQxMjBlMi1hM2QwLTQ1ZDMtOTMwOC05NzIyYmJmZjIyMzgiLCJpc3MiOiJuOG4iLCJhdWQiOiJwdWJsaWMtYXBpIiwiaWF0IjoxNzYwMDQ5MTUzfQ.Q6Rr-p9MlGpwM3M5IHhyPWvCU2hjqQsowV8SS2ultbE"
+    },
+    "error": "Body is unusable: Body has already been read",
+    "ok": false,
+    "authMethod": "X-N8N-API-KEY"
+  },
+  {
+    "url": "https://fluxos.eleveaagencia.com.br/credentials",
+    "method": "GET",
+    "headers": {
+      "API-Key": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJhYWQxMjBlMi1hM2QwLTQ1ZDMtOTMwOC05NzIyYmJmZjIyMzgiLCJpc3MiOiJuOG4iLCJhdWQiOiJwdWJsaWMtYXBpIiwiaWF0IjoxNzYwMDQ5MTUzfQ.Q6Rr-p9MlGpwM3M5IHhyPWvCU2hjqQsowV8SS2ultbE"
+    },
+    "error": "Body is unusable: Body has already been read",
+    "ok": false,
+    "authMethod": "API-Key"
+  },
+  {
+    "url": "https://fluxos.eleveaagencia.com.br/credentials",
+    "method": "GET",
+    "headers": {
+      "X-API-Key": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJhYWQxMjBlMi1hM2QwLTQ1ZDMtOTMwOC05NzIyYmJmZjIyMzgiLCJpc3MiOiJuOG4iLCJhdWQiOiJwdWJsaWMtYXBpIiwiaWF0IjoxNzYwMDQ5MTUzfQ.Q6Rr-p9MlGpwM3M5IHhyPWvCU2hjqQsowV8SS2ultbE"
+    },
+    "error": "Body is unusable: Body has already been read",
+    "ok": false,
+    "authMethod": "X-API-Key"
+  },
+  {
+    "url": "https://fluxos.eleveaagencia.com.br/credentials",
+    "method": "GET",
+    "headers": {
+      "Authorization": "Basic ZXlKaGJHY2lPaUpJVXpJMU5pSXNJblI1Y0NJNklrcFhWQ0o5LmV5SnpkV0lpT2lKaFlXUXhNakJsTWkxaE0yUXdMVFExWkRNdE9UTXdPQzA1TnpJeVltSm1aakl5TXpnaUxDSnBjM01pT2lKdU9HNGlMQ0poZFdRaU9pSndkV0pzYVdNdFlYQnBJaXdpYVdGMElqb3hOell3TURRNU1UVXpmUS5RNlJyLXA5TWxHcHdNM001SUhoeVBXdkNVMmhqcVFzb3dWOFNTMnVsdGJF"
+    },
+    "error": "Body is unusable: Body has already been read",
+    "ok": false,
+    "authMethod": "Authorization Basic"
+  },
+  {
+    "url": "https://fluxos.eleveaagencia.com.br/credentials",
+    "method": "GET",
+    "headers": {},
+    "error": "Body is unusable: Body has already been read",
+    "ok": false,
+    "authMethod": "No Auth"
+  },
+  {
+    "url": "https://fluxos.eleveaagencia.com.br/webhook-test/test",
+    "method": "POST",
+    "headers": {
+      "X-N8N-API-KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJhYWQxMjBlMi1hM2QwLTQ1ZDMtOTMwOC05NzIyYmJmZjIyMzgiLCJpc3MiOiJuOG4iLCJhdWQiOiJwdWJsaWMtYXBpIiwiaWF0IjoxNzYwMDQ5MTUzfQ.Q6Rr-p9MlGpwM3M5IHhyPWvCU2hjqQsowV8SS2ultbE"
+    },
+    "status": 404,
+    "statusText": "Not Found",
+    "ok": false,
+    "data": null,
+    "authMethod": "X-N8N-API-KEY (POST)"
+  },
+  {
+    "url": "https://fluxos.eleveaagencia.com.br/webhook/test",
+    "method": "POST",
+    "headers": {
+      "X-N8N-API-KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJhYWQxMjBlMi1hM2QwLTQ1ZDMtOTMwOC05NzIyYmJmZjIyMzgiLCJpc3MiOiJuOG4iLCJhdWQiOiJwdWJsaWMtYXBpIiwiaWF0IjoxNzYwMDQ5MTUzfQ.Q6Rr-p9MlGpwM3M5IHhyPWvCU2hjqQsowV8SS2ultbE"
+    },
+    "status": 404,
+    "statusText": "Not Found",
+    "ok": false,
+    "data": null,
+    "authMethod": "X-N8N-API-KEY (POST)"
+  },
+  {
+    "url": "https://fluxos.eleveaagencia.com.br/api/webhook/test",
+    "method": "POST",
+    "headers": {
+      "X-N8N-API-KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJhYWQxMjBlMi1hM2QwLTQ1ZDMtOTMwOC05NzIyYmJmZjIyMzgiLCJpc3MiOiJuOG4iLCJhdWQiOiJwdWJsaWMtYXBpIiwiaWF0IjoxNzYwMDQ5MTUzfQ.Q6Rr-p9MlGpwM3M5IHhyPWvCU2hjqQsowV8SS2ultbE"
+    },
+    "status": 404,
+    "statusText": "Not Found",
+    "ok": false,
+    "data": null,
+    "authMethod": "X-N8N-API-KEY (POST)"
+  }
+]

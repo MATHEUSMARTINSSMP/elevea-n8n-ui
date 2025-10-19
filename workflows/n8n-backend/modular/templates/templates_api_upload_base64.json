@@ -1,0 +1,160 @@
+{
+  "name": "templates_api_upload_base64",
+  "description": "Workflow modular para api/upload/base64 - Módulo TEMPLATES",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "api/upload/base64",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "webhook-upload-base64",
+      "name": "📤 Webhook - Upload Base64",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [
+        260,
+        8500
+      ],
+      "webhookId": "elevea-upload-base64"
+    },
+    {
+      "parameters": {
+        "jsCode": "// FUNÇÃO: upload_base64 (do GAS)\nconst out = [];\nfor (const { json } of items) {\n  const { siteSlug, fileName, fileData, mimeType } = json.body || {};\n  \n  if (!siteSlug || !fileName || !fileData) {\n    out.push({\n      json: {\n        success: false,\n        error: 'siteSlug, fileName e fileData são obrigatórios',\n        timestamp: new Date().toISOString()\n      }\n    });\n    continue;\n  }\n  \n  // Gerar URL temporária (em produção, fazer upload real)\n  const fileUrl = `https://storage.elevea.com/${siteSlug}/${fileName}`;\n  const fileId = 'file_' + Date.now();\n  \n  out.push({\n    json: {\n      success: true,\n      fileId,\n      fileName,\n      fileUrl,\n      siteSlug,\n      mimeType: mimeType || 'application/octet-stream',\n      size: Math.floor(fileData.length * 0.75),\n      uploadedAt: new Date().toISOString(),\n      timestamp: new Date().toISOString()\n    }\n  });\n}\nreturn out;"
+      },
+      "id": "code-upload-base64",
+      "name": "📤 Code - Upload Base64",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        460,
+        8500
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "base": {
+          "__rl": true,
+          "value": "appELEVEA",
+          "mode": "list"
+        },
+        "table": {
+          "__rl": true,
+          "value": "uploaded_files",
+          "mode": "list"
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldName": "file_id",
+              "fieldValue": "={{ $json.fileId }}"
+            },
+            {
+              "fieldName": "site_slug",
+              "fieldValue": "={{ $json.siteSlug }}"
+            },
+            {
+              "fieldName": "file_name",
+              "fieldValue": "={{ $json.fileName }}"
+            },
+            {
+              "fieldName": "file_url",
+              "fieldValue": "={{ $json.fileUrl }}"
+            },
+            {
+              "fieldName": "mime_type",
+              "fieldValue": "={{ $json.mimeType }}"
+            },
+            {
+              "fieldName": "file_size",
+              "fieldValue": "={{ $json.size }}"
+            }
+          ]
+        }
+      },
+      "id": "airtable-insert-uploaded-file",
+      "name": "🗄️ Airtable - Insert Uploaded File",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [
+        660,
+        8500
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { success: true, message: 'Arquivo enviado com sucesso', fileId: $json.fileId, fileUrl: $json.fileUrl, timestamp: new Date().toISOString() } }}",
+        "options": {
+          "headers": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          }
+        }
+      },
+      "id": "respond-upload-base64",
+      "name": "📤 Respond - Upload Base64",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        860,
+        8500
+      ]
+    }
+  ],
+  "connections": {
+    "webhook-upload-base64": {
+      "main": [
+        [
+          {
+            "node": "code-upload-base64",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "respond-upload-base64",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "code-upload-base64": {
+      "main": [
+        [
+          {
+            "node": "airtable-insert-uploaded-file",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "airtable-insert-uploaded-file": {
+      "main": [
+        [
+          {
+            "node": "respond-upload-base64",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": [
+    "modular",
+    "elevea",
+    "templates"
+  ]
+}

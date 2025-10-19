@@ -1,0 +1,124 @@
+{
+  "name": "ecommerce_api_ecommerce_orders_update",
+  "description": "Workflow modular para api/ecommerce/orders/update - Módulo ECOMMERCE",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "api/ecommerce/orders/update",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "webhook-order-update",
+      "name": "🛍️ Webhook - Order Update",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [
+        260,
+        10700
+      ],
+      "webhookId": "elevea-order-update"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { success: true, message: 'Pedido atualizado', orderId: $json.orderId, status: $json.newStatus, timestamp: new Date().toISOString() } }}",
+        "options": {
+          "headers": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          }
+        }
+      },
+      "id": "respond-order-update",
+      "name": "📤 Respond - Order Update",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1460,
+        10700
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Processar dados do webhook\nreturn [{ json: $input.first().json }];"
+      },
+      "id": "process-webhook-order-update",
+      "name": "🔧 Process - 🛍️ Webhook - Order Update",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        400,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { success: true, message: '🔧 Process - 🛍️ Webhook - Order Create processado', timestamp: new Date().toISOString() } }}",
+        "options": {}
+      },
+      "id": "respond-process-webhook-order-create",
+      "name": "📤 Respond - 🛍️ Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        800,
+        100
+      ]
+    }
+  ],
+  "connections": {
+    "webhook-order-update": {
+      "main": [
+        [
+          {
+            "node": "respond-order-update",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "process-webhook-order-update",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "respond-order-update": {
+      "main": [
+        [
+          {
+            "node": "respond-order-update",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "process-webhook-order-update": {
+      "main": [
+        [
+          {
+            "node": "respond-process-webhook-order-create",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": [
+    "modular",
+    "elevea",
+    "ecommerce"
+  ]
+}

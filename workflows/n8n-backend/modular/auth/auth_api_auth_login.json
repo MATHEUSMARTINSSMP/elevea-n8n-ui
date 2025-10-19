@@ -1,0 +1,222 @@
+{
+  "name": "auth_api_auth_login",
+  "description": "Workflow modular para api/auth/login - Módulo AUTH",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "api/auth/login",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "webhook-auth-login",
+      "name": "🔐 Webhook - Auth Login",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [
+        260,
+        500
+      ],
+      "webhookId": "elevea-auth-login"
+    },
+    {
+      "parameters": {
+        "jsCode": "// FUNÇÃO: user_login (do GAS)\nconst out = [];\nfor (const { json } of items) {\n  const { email, password, site } = json.body || {};\n  \n  if (!email || !password) {\n    out.push({\n      json: {\n        success: false,\n        error: 'Email e senha são obrigatórios',\n        code: 'MISSING_CREDENTIALS',\n        timestamp: new Date().toISOString()\n      }\n    });\n    continue;\n  }\n  \n  const emailLower = email.toLowerCase().trim();\n  const role = emailLower.includes('admin') ? 'admin' : 'client';\n  const siteSlug = site || emailLower.split('@')[0].replace(/[^a-z0-9]/gi, '-');\n  \n  if (password.length < 6) {\n    out.push({\n      json: {\n        success: false,\n        error: 'Senha deve ter no mínimo 6 caracteres',\n        code: 'WEAK_PASSWORD',\n        timestamp: new Date().toISOString()\n      }\n    });\n    continue;\n  }\n  \n  const token = 'jwt_' + Buffer.from(emailLower + ':' + Date.now()).toString('base64');\n  \n  out.push({\n    json: {\n      success: true,\n      user: {\n        email: emailLower,\n        role: role,\n        siteSlug: siteSlug,\n        plan: role === 'admin' ? 'vip' : 'essential',\n        status: 'active'\n      },\n      token: token,\n      expiresIn: 86400,\n      timestamp: new Date().toISOString()\n    }\n  });\n}\nreturn out;"
+      },
+      "id": "code-user-login",
+      "name": "🔐 Code - User Login",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        460,
+        500
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "search",
+        "base": {
+          "__rl": true,
+          "value": "appELEVEA",
+          "mode": "list",
+          "cachedResultName": "ELEVEA Base"
+        },
+        "table": {
+          "__rl": true,
+          "value": "users",
+          "mode": "list",
+          "cachedResultName": "users"
+        },
+        "filterByFormula": "=AND({email}='{{ $json.user.email }}')",
+        "options": {}
+      },
+      "id": "airtable-search-user",
+      "name": "🗄️ Airtable - Search User",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [
+        660,
+        500
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Atualizar last_login do usuário\nconst out = [];\nfor (const { json } of items) {\n  if (json.id) {\n    out.push({\n      json: {\n        recordId: json.id,\n        email: json.fields?.email || json.email,\n        lastLogin: new Date().toISOString()\n      }\n    });\n  } else {\n    out.push({ json });\n  }\n}\nreturn out;"
+      },
+      "id": "code-prepare-user-update",
+      "name": "📝 Code - Prepare User Update",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        860,
+        500
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "base": {
+          "__rl": true,
+          "value": "appELEVEA",
+          "mode": "list"
+        },
+        "table": {
+          "__rl": true,
+          "value": "users",
+          "mode": "list"
+        },
+        "id": "={{ $json.recordId }}",
+        "options": {
+          "bulkSize": 10,
+          "ignoreErrors": true
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldName": "last_login",
+              "fieldValue": "={{ $json.lastLogin }}"
+            }
+          ]
+        }
+      },
+      "id": "airtable-update-user-login",
+      "name": "🗄️ Airtable - Update User Login",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [
+        1060,
+        500
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {
+          "headers": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          }
+        }
+      },
+      "id": "respond-login",
+      "name": "📤 Respond - Login",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1260,
+        500
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { success: true, message: '🔐 Webhook - Auth Login processado', timestamp: new Date().toISOString() } }}",
+        "options": {}
+      },
+      "id": "respond-webhook-auth-login",
+      "name": "📤 Respond - Auth Login",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        800,
+        100
+      ]
+    }
+  ],
+  "connections": {
+    "webhook-auth-login": {
+      "main": [
+        [
+          {
+            "node": "code-user-login",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "respond-webhook-auth-login",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "code-user-login": {
+      "main": [
+        [
+          {
+            "node": "airtable-search-user",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "airtable-search-user": {
+      "main": [
+        [
+          {
+            "node": "code-prepare-user-update",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "code-prepare-user-update": {
+      "main": [
+        [
+          {
+            "node": "airtable-update-user-login",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "airtable-update-user-login": {
+      "main": [
+        [
+          {
+            "node": "respond-login",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": [
+    "modular",
+    "elevea",
+    "auth"
+  ]
+}

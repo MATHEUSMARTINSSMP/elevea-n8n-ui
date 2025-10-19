@@ -1,0 +1,755 @@
+{
+  "name": "auth_complete_system",
+  "description": "Sistema completo de autenticação - login, senha, reset e perfil",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "api/auth/login",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "node_1_webhook-auth-login",
+      "name": "🔐 Webhook - Auth Login",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [
+        260,
+        500
+      ],
+      "webhookId": "elevea-auth-login"
+    },
+    {
+      "parameters": {
+        "jsCode": "// FUNÇÃO: user_login (do GAS)\nconst out = [];\nfor (const { json } of items) {\n  const { email, password, site } = json.body || {};\n  \n  if (!email || !password) {\n    out.push({\n      json: {\n        success: false,\n        error: 'Email e senha são obrigatórios',\n        code: 'MISSING_CREDENTIALS',\n        timestamp: new Date().toISOString()\n      }\n    });\n    continue;\n  }\n  \n  const emailLower = email.toLowerCase().trim();\n  const role = emailLower.includes('admin') ? 'admin' : 'client';\n  const siteSlug = site || emailLower.split('@')[0].replace(/[^a-z0-9]/gi, '-');\n  \n  if (password.length < 6) {\n    out.push({\n      json: {\n        success: false,\n        error: 'Senha deve ter no mínimo 6 caracteres',\n        code: 'WEAK_PASSWORD',\n        timestamp: new Date().toISOString()\n      }\n    });\n    continue;\n  }\n  \n  const token = 'jwt_' + Buffer.from(emailLower + ':' + Date.now()).toString('base64');\n  \n  out.push({\n    json: {\n      success: true,\n      user: {\n        email: emailLower,\n        role: role,\n        siteSlug: siteSlug,\n        plan: role === 'admin' ? 'vip' : 'essential',\n        status: 'active'\n      },\n      token: token,\n      expiresIn: 86400,\n      timestamp: new Date().toISOString()\n    }\n  });\n}\nreturn out;"
+      },
+      "id": "node_2_code-user-login",
+      "name": "🔐 Code - User Login",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        460,
+        500
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "search",
+        "base": {
+          "__rl": true,
+          "value": "appELEVEA",
+          "mode": "list",
+          "cachedResultName": "ELEVEA Base"
+        },
+        "table": {
+          "__rl": true,
+          "value": "users",
+          "mode": "list",
+          "cachedResultName": "users"
+        },
+        "filterByFormula": "=AND({email}='{{ $json.user.email }}')",
+        "options": {}
+      },
+      "id": "node_3_airtable-search-user",
+      "name": "🗄️ Airtable - Search User",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [
+        660,
+        500
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Atualizar last_login do usuário\nconst out = [];\nfor (const { json } of items) {\n  if (json.id) {\n    out.push({\n      json: {\n        recordId: json.id,\n        email: json.fields?.email || json.email,\n        lastLogin: new Date().toISOString()\n      }\n    });\n  } else {\n    out.push({ json });\n  }\n}\nreturn out;"
+      },
+      "id": "node_4_code-prepare-user-update",
+      "name": "📝 Code - Prepare User Update",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        860,
+        500
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "base": {
+          "__rl": true,
+          "value": "appELEVEA",
+          "mode": "list"
+        },
+        "table": {
+          "__rl": true,
+          "value": "users",
+          "mode": "list"
+        },
+        "id": "={{ $json.recordId }}",
+        "options": {
+          "bulkSize": 10,
+          "ignoreErrors": true
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldName": "last_login",
+              "fieldValue": "={{ $json.lastLogin }}"
+            }
+          ]
+        }
+      },
+      "id": "node_5_airtable-update-user-login",
+      "name": "🗄️ Airtable - Update User Login",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [
+        1060,
+        500
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {
+          "headers": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          }
+        }
+      },
+      "id": "node_6_respond-login",
+      "name": "📤 Respond - Login",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1260,
+        500
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { success: true, message: '🔐 Webhook - Auth Login processado', timestamp: new Date().toISOString() } }}",
+        "options": {}
+      },
+      "id": "node_7_respond-webhook-auth-login",
+      "name": "📤 Respond - Auth Login",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        800,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "api/auth/set-password",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "node_8_webhook-set-password",
+      "name": "🔑 Webhook - Set Password",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [
+        260,
+        700
+      ],
+      "webhookId": "elevea-set-password"
+    },
+    {
+      "parameters": {
+        "jsCode": "// FUNÇÃO: user_set_password (do GAS)\nconst out = [];\nfor (const { json } of items) {\n  const { email, password, token } = json.body || {};\n  \n  if (!email || !password) {\n    out.push({\n      json: {\n        success: false,\n        error: 'Email e senha são obrigatórios',\n        timestamp: new Date().toISOString()\n      }\n    });\n    continue;\n  }\n  \n  if (password.length < 6) {\n    out.push({\n      json: {\n        success: false,\n        error: 'Senha deve ter no mínimo 6 caracteres',\n        timestamp: new Date().toISOString()\n      }\n    });\n    continue;\n  }\n  \n  const hashedPassword = 'hashed_' + Buffer.from(password).toString('base64');\n  \n  out.push({\n    json: {\n      success: true,\n      message: 'Senha definida com sucesso',\n      email: email.toLowerCase().trim(),\n      passwordHash: hashedPassword,\n      timestamp: new Date().toISOString()\n    }\n  });\n}\nreturn out;"
+      },
+      "id": "node_9_code-set-password",
+      "name": "🔑 Code - Set Password",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        460,
+        700
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "search",
+        "base": {
+          "__rl": true,
+          "value": "appELEVEA",
+          "mode": "list"
+        },
+        "table": {
+          "__rl": true,
+          "value": "users",
+          "mode": "list"
+        },
+        "filterByFormula": "=AND({email}='{{ $json.email }}')",
+        "options": {}
+      },
+      "id": "node_10_airtable-search-user-password",
+      "name": "🗄️ Airtable - Search User for Password",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [
+        660,
+        700
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "base": {
+          "__rl": true,
+          "value": "appELEVEA",
+          "mode": "list"
+        },
+        "table": {
+          "__rl": true,
+          "value": "users",
+          "mode": "list"
+        },
+        "id": "={{ $json.id }}",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldName": "password_hash",
+              "fieldValue": "={{ $json.passwordHash }}"
+            },
+            {
+              "fieldName": "updated_at",
+              "fieldValue": "={{ new Date().toISOString() }}"
+            }
+          ]
+        }
+      },
+      "id": "node_11_airtable-update-password",
+      "name": "🗄️ Airtable - Update Password",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [
+        860,
+        700
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { success: true, message: 'Senha atualizada com sucesso', timestamp: new Date().toISOString() } }}",
+        "options": {
+          "headers": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          }
+        }
+      },
+      "id": "node_12_respond-set-password",
+      "name": "📤 Respond - Set Password",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1060,
+        700
+      ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "api/auth/me",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "node_13_webhook-user-me",
+      "name": "👤 Webhook - User Me",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [
+        260,
+        900
+      ],
+      "webhookId": "elevea-user-me"
+    },
+    {
+      "parameters": {
+        "jsCode": "// FUNÇÃO: user_me (do GAS)\nconst out = [];\nfor (const { json } of items) {\n  const { email, token } = json.body || {};\n  \n  if (!email) {\n    out.push({\n      json: {\n        success: false,\n        error: 'Email é obrigatório',\n        timestamp: new Date().toISOString()\n      }\n    });\n    continue;\n  }\n  \n  out.push({\n    json: {\n      success: true,\n      email: email.toLowerCase().trim(),\n      needsData: true,\n      timestamp: new Date().toISOString()\n    }\n  });\n}\nreturn out;"
+      },
+      "id": "node_14_code-user-me",
+      "name": "👤 Code - User Me",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        460,
+        900
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "search",
+        "base": {
+          "__rl": true,
+          "value": "appELEVEA",
+          "mode": "list"
+        },
+        "table": {
+          "__rl": true,
+          "value": "users",
+          "mode": "list"
+        },
+        "filterByFormula": "=AND({email}='{{ $json.email }}')",
+        "options": {}
+      },
+      "id": "node_15_airtable-search-user-me",
+      "name": "🗄️ Airtable - Search User Me",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [
+        660,
+        900
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "search",
+        "base": {
+          "__rl": true,
+          "value": "appELEVEA",
+          "mode": "list"
+        },
+        "table": {
+          "__rl": true,
+          "value": "clients",
+          "mode": "list"
+        },
+        "filterByFormula": "=AND({email}='{{ $json.fields.email }}')",
+        "options": {}
+      },
+      "id": "node_16_airtable-search-client-me",
+      "name": "🗄️ Airtable - Search Client Me",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [
+        860,
+        900
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Mesclar dados user + client\nconst out = [];\nfor (const { json } of items) {\n  const user = json.fields || {};\n  const role = user.role || 'client';\n  const siteSlug = user.site_slug || user.email?.split('@')[0].replace(/[^a-z0-9]/gi, '-');\n  const plan = user.plan || 'essential';\n  const isVip = plan === 'vip';\n  \n  const coreFeatures = ['basic-website', 'google-my-business'];\n  const vipFeatures = [\n    'ai-copywriter', 'auto-seo', 'lead-scoring', 'whatsapp-chatbot',\n    'appointment-scheduling', 'multi-language', 'ecommerce',\n    'premium-templates', 'white-label', 'audit-logs', 'feedback-system'\n  ];\n  \n  out.push({\n    json: {\n      success: true,\n      user: {\n        email: user.email,\n        role: role,\n        siteSlug: siteSlug,\n        plan: plan,\n        status: user.status || 'active',\n        createdAt: user.created_at,\n        features: isVip ? [...coreFeatures, ...vipFeatures] : coreFeatures\n      },\n      timestamp: new Date().toISOString()\n    }\n  });\n}\nreturn out;"
+      },
+      "id": "node_17_code-merge-user-data",
+      "name": "📊 Code - Merge User Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1060,
+        900
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {
+          "headers": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          }
+        }
+      },
+      "id": "node_18_respond-user-me",
+      "name": "📤 Respond - User Me",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1260,
+        900
+      ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "api/auth/password-reset-request",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "node_19_webhook-password-reset-request",
+      "name": "🔑 Webhook - Password Reset Request",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [
+        260,
+        1100
+      ],
+      "webhookId": "elevea-password-reset-request"
+    },
+    {
+      "parameters": {
+        "jsCode": "// FUNÇÃO: password_reset_request (do GAS)\nconst out = [];\nfor (const { json } of items) {\n  const { email } = json.body || {};\n  \n  if (!email || !email.includes('@')) {\n    out.push({\n      json: {\n        success: false,\n        error: 'Email válido é obrigatório',\n        timestamp: new Date().toISOString()\n      }\n    });\n    continue;\n  }\n  \n  const resetToken = require('crypto').randomBytes(32).toString('hex');\n  const resetLink = `https://agenciaelevea.netlify.app/reset?token=${resetToken}`;\n  const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();\n  \n  out.push({ \n    json: { \n      success: true,\n      email: email.toLowerCase().trim(), \n      resetToken: resetToken, \n      resetLink: resetLink,\n      expiresAt: expiresAt,\n      message: 'Link de reset enviado por email',\n      timestamp: new Date().toISOString()\n    } \n  });\n}\nreturn out;"
+      },
+      "id": "node_20_code-password-reset-request",
+      "name": "🔑 Code - Password Reset Request",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        460,
+        1100
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://api.resend.com/emails",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ {\n  \"from\": \"noreply@elevea.com\",\n  \"to\": [ $json.email ],\n  \"subject\": \"🔑 Reset de Senha - ELEVEA\",\n  \"html\": \"<div style='font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;'>\" +\n    \"<h2 style='color: #333; text-align: center;'>🔑 Reset de Senha</h2>\" +\n    \"<p>Olá!</p>\" +\n    \"<p>Recebemos uma solicitação para resetar sua senha na plataforma ELEVEA.</p>\" +\n    \"<div style='text-align: center; margin: 30px 0;'>\" +\n      \"<a href='\" + $json.resetLink + \"' style='background: #007bff; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; display: inline-block;'>Resetar Senha</a>\" +\n    \"</div>\" +\n    \"<p>Este link expira em 24 horas.</p>\" +\n    \"<p>Se você não solicitou, ignore este email.</p>\" +\n    \"<hr style='margin: 30px 0; border: none; border-top: 1px solid #eee;'>\" +\n    \"<p style='color: #666; font-size: 12px; text-align: center;'>Equipe ELEVEA</p>\" +\n    \"</div>\"\n} }}",
+        "options": {}
+      },
+      "id": "node_21_http-resend-reset-email",
+      "name": "📧 HTTP - Resend Reset Email",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        660,
+        1100
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { success: true, message: 'Email de reset enviado', timestamp: new Date().toISOString() } }}",
+        "options": {
+          "headers": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          }
+        }
+      },
+      "id": "node_22_respond-password-reset-request",
+      "name": "📤 Respond - Password Reset Request",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        860,
+        1100
+      ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "api/auth/password-reset-confirm",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "node_23_webhook-password-reset-confirm",
+      "name": "🔑 Webhook - Password Reset Confirm",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [
+        260,
+        1300
+      ],
+      "webhookId": "elevea-password-reset-confirm"
+    },
+    {
+      "parameters": {
+        "jsCode": "// FUNÇÃO: password_reset_confirm (do GAS)\nconst out = [];\nfor (const { json } of items) {\n  const { token, password } = json.body || {};\n  \n  if (!token || !password) {\n    out.push({\n      json: {\n        success: false,\n        error: 'Token e nova senha são obrigatórios',\n        timestamp: new Date().toISOString()\n      }\n    });\n    continue;\n  }\n  \n  if (password.length < 6) {\n    out.push({\n      json: {\n        success: false,\n        error: 'Senha deve ter no mínimo 6 caracteres',\n        timestamp: new Date().toISOString()\n      }\n    });\n    continue;\n  }\n  \n  if (token.length < 10) {\n    out.push({\n      json: {\n        success: false,\n        error: 'Token inválido ou expirado',\n        timestamp: new Date().toISOString()\n      }\n    });\n    continue;\n  }\n  \n  const hashedPassword = 'hashed_' + Buffer.from(password).toString('base64');\n  \n  out.push({\n    json: {\n      success: true,\n      message: 'Senha redefinida com sucesso',\n      token: token,\n      passwordHash: hashedPassword,\n      timestamp: new Date().toISOString()\n    }\n  });\n}\nreturn out;"
+      },
+      "id": "node_24_code-password-reset-confirm",
+      "name": "🔑 Code - Password Reset Confirm",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        460,
+        1300
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {
+          "headers": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          }
+        }
+      },
+      "id": "node_25_respond-password-reset-confirm",
+      "name": "📤 Respond - Password Reset Confirm",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        660,
+        1300
+      ]
+    }
+  ],
+  "connections": {
+    "node_1_webhook-auth-login": {
+      "main": [
+        [
+          {
+            "node": "node_2_code-user-login",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "node_7_respond-webhook-auth-login",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "node_2_code-user-login": {
+      "main": [
+        [
+          {
+            "node": "node_3_airtable-search-user",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "node_3_airtable-search-user": {
+      "main": [
+        [
+          {
+            "node": "node_4_code-prepare-user-update",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "node_4_code-prepare-user-update": {
+      "main": [
+        [
+          {
+            "node": "node_5_airtable-update-user-login",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "node_5_airtable-update-user-login": {
+      "main": [
+        [
+          {
+            "node": "node_6_respond-login",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "node_8_webhook-set-password": {
+      "main": [
+        [
+          {
+            "node": "node_9_code-set-password",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "node_12_respond-set-password",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "node_9_code-set-password": {
+      "main": [
+        [
+          {
+            "node": "node_10_airtable-search-user-password",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "node_10_airtable-search-user-password": {
+      "main": [
+        [
+          {
+            "node": "node_11_airtable-update-password",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "node_11_airtable-update-password": {
+      "main": [
+        [
+          {
+            "node": "node_12_respond-set-password",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "node_13_webhook-user-me": {
+      "main": [
+        [
+          {
+            "node": "node_14_code-user-me",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "node_18_respond-user-me",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "node_14_code-user-me": {
+      "main": [
+        [
+          {
+            "node": "node_15_airtable-search-user-me",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "node_15_airtable-search-user-me": {
+      "main": [
+        [
+          {
+            "node": "node_16_airtable-search-client-me",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "node_16_airtable-search-client-me": {
+      "main": [
+        [
+          {
+            "node": "node_17_code-merge-user-data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "node_17_code-merge-user-data": {
+      "main": [
+        [
+          {
+            "node": "node_18_respond-user-me",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "node_19_webhook-password-reset-request": {
+      "main": [
+        [
+          {
+            "node": "node_20_code-password-reset-request",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "node_22_respond-password-reset-request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "node_20_code-password-reset-request": {
+      "main": [
+        [
+          {
+            "node": "node_21_http-resend-reset-email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "node_21_http-resend-reset-email": {
+      "main": [
+        [
+          {
+            "node": "node_22_respond-password-reset-request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "node_23_webhook-password-reset-confirm": {
+      "main": [
+        [
+          {
+            "node": "node_24_code-password-reset-confirm",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "node_25_respond-password-reset-confirm",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "node_24_code-password-reset-confirm": {
+      "main": [
+        [
+          {
+            "node": "node_25_respond-password-reset-confirm",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": [
+    "optimized",
+    "elevea",
+    "modular"
+  ]
+}

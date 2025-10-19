@@ -1,0 +1,712 @@
+{
+  "name": "appointments_management",
+  "description": "Gerenciamento de agendamentos",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "GET",
+        "path": "api/appointments/list",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "node_1_webhook-appointments-list",
+      "name": "📅 Webhook - Appointments List",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [
+        260,
+        10900
+      ],
+      "webhookId": "elevea-appointments-list"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {
+          "headers": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          }
+        }
+      },
+      "id": "node_2_respond-appointments-list",
+      "name": "📤 Respond - Appointments List",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1060,
+        10900
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Processar dados do webhook\nreturn [{ json: $input.first().json }];"
+      },
+      "id": "node_3_process-webhook-appointments-list",
+      "name": "🔧 Process - 📅 Webhook - Appointments List",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        400,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { success: true, message: '🔧 Process - 📅 Webhook - Appointments List processado', timestamp: new Date().toISOString() } }}",
+        "options": {}
+      },
+      "id": "node_4_respond-process-webhook-appointments-list",
+      "name": "📤 Respond - 📅 Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        800,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "api/appointments/create",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "node_5_webhook-appointment-create",
+      "name": "📅 Webhook - Appointment Create",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [
+        260,
+        11100
+      ],
+      "webhookId": "elevea-appointment-create"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { success: true, message: 'Agendamento criado com sucesso', appointmentId: $json.appointmentId, timestamp: new Date().toISOString() } }}",
+        "options": {
+          "headers": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          }
+        }
+      },
+      "id": "node_6_respond-appointment-create",
+      "name": "📤 Respond - Appointment Create",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1260,
+        11100
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Processar dados do webhook\nreturn [{ json: $input.first().json }];"
+      },
+      "id": "node_7_process-webhook-appointment-create",
+      "name": "🔧 Process - 📅 Webhook - Appointment Create",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        400,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "api/appointments/cancel",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "node_8_webhook-appointment-cancel",
+      "name": "📅 Webhook - Appointment Cancel",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [
+        260,
+        12700
+      ],
+      "webhookId": "elevea-appointment-cancel"
+    },
+    {
+      "parameters": {
+        "jsCode": "// FUNÇÃO: appointment_cancel (lógica do GAS)\nconst out = [];\nfor (const { json } of items) {\n  const { appointmentId, reason } = json.body || {};\n  \n  if (!appointmentId) {\n    out.push({\n      json: {\n        success: false,\n        error: 'Appointment ID é obrigatório',\n        timestamp: new Date().toISOString()\n      }\n    });\n    continue;\n  }\n  \n  out.push({\n    json: {\n      appointmentId: appointmentId,\n      reason: reason || 'Cancelado pelo cliente',\n      searchFormula: `{id}='${appointmentId}'`,\n      timestamp: new Date().toISOString()\n    }\n  });\n}\nreturn out;"
+      },
+      "id": "node_9_code-appointment-cancel-prep",
+      "name": "📝 Code - Prepare Cancel",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        460,
+        12700
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "search",
+        "base": {
+          "__rl": true,
+          "value": "appELEVEA",
+          "mode": "list"
+        },
+        "table": {
+          "__rl": true,
+          "value": "appointments",
+          "mode": "list"
+        },
+        "filterByFormula": "={{ $json.searchFormula }}",
+        "options": {}
+      },
+      "id": "node_10_airtable-search-appointment-cancel",
+      "name": "🗄️ Airtable - Search Appointment",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [
+        660,
+        12700
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "base": {
+          "__rl": true,
+          "value": "appELEVEA",
+          "mode": "list"
+        },
+        "table": {
+          "__rl": true,
+          "value": "appointments",
+          "mode": "list"
+        },
+        "id": "={{ $json.id }}",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldName": "status",
+              "fieldValue": "cancelled"
+            },
+            {
+              "fieldName": "cancelledAt",
+              "fieldValue": "={{ new Date().toISOString() }}"
+            },
+            {
+              "fieldName": "cancellationReason",
+              "fieldValue": "={{ $json.reason }}"
+            }
+          ]
+        }
+      },
+      "id": "node_11_airtable-cancel-appointment",
+      "name": "🗄️ Airtable - Cancel Appointment",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [
+        860,
+        12700
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Preparar mensagem WhatsApp de cancelamento\nconst out = [];\nfor (const { json } of items) {\n  const fields = json.fields || {};\n  const phone = (fields.customerPhone || '').replace(/\\D/g, '');\n  const name = fields.customerName || 'Cliente';\n  const datetime = fields.datetime || '';\n  \n  const message = `Olá ${name}! Seu agendamento para ${datetime} foi cancelado. Entre em contato para reagendar se desejar.`;\n  \n  out.push({\n    json: {\n      to: phone.length === 11 ? '55' + phone : phone,\n      message: message,\n      customerEmail: fields.customerEmail,\n      appointmentId: fields.id,\n      timestamp: new Date().toISOString()\n    }\n  });\n}\nreturn out;"
+      },
+      "id": "node_12_code-prep-cancel-whatsapp",
+      "name": "📱 Code - Prep WhatsApp Cancel",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1060,
+        12700
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://graph.facebook.com/v18.0/PHONE_ID/messages",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer {{ $json.WHATSAPP_TOKEN }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "messaging_product",
+              "value": "whatsapp"
+            },
+            {
+              "name": "to",
+              "value": "={{ $json.to }}"
+            },
+            {
+              "name": "type",
+              "value": "text"
+            },
+            {
+              "name": "text",
+              "value": "={{ { body: $json.message } }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "node_13_http-whatsapp-cancel-notif",
+      "name": "📱 HTTP - WhatsApp Cancel Notif",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        1260,
+        12700
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { success: true, message: 'Agendamento cancelado e notificação enviada', timestamp: new Date().toISOString() } }}",
+        "options": {
+          "headers": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          }
+        }
+      },
+      "id": "node_14_respond-appointment-cancel",
+      "name": "📤 Respond - Appointment Cancel",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1460,
+        12700
+      ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "api/appointments/confirm",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "node_15_webhook-appointment-confirm",
+      "name": "📅 Webhook - Appointment Confirm",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [
+        260,
+        12900
+      ],
+      "webhookId": "elevea-appointment-confirm"
+    },
+    {
+      "parameters": {
+        "jsCode": "// FUNÇÃO: appointment_confirm (lógica do GAS)\nconst out = [];\nfor (const { json } of items) {\n  const { appointmentId } = json.body || {};\n  \n  if (!appointmentId) {\n    out.push({\n      json: {\n        success: false,\n        error: 'Appointment ID é obrigatório',\n        timestamp: new Date().toISOString()\n      }\n    });\n    continue;\n  }\n  \n  out.push({\n    json: {\n      appointmentId: appointmentId,\n      searchFormula: `{id}='${appointmentId}'`,\n      timestamp: new Date().toISOString()\n    }\n  });\n}\nreturn out;"
+      },
+      "id": "node_16_code-appointment-confirm-prep",
+      "name": "📝 Code - Prepare Confirm",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        460,
+        12900
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "search",
+        "base": {
+          "__rl": true,
+          "value": "appELEVEA",
+          "mode": "list"
+        },
+        "table": {
+          "__rl": true,
+          "value": "appointments",
+          "mode": "list"
+        },
+        "filterByFormula": "={{ $json.searchFormula }}",
+        "options": {}
+      },
+      "id": "node_17_airtable-search-appointment-confirm",
+      "name": "🗄️ Airtable - Search Appointment",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [
+        660,
+        12900
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "base": {
+          "__rl": true,
+          "value": "appELEVEA",
+          "mode": "list"
+        },
+        "table": {
+          "__rl": true,
+          "value": "appointments",
+          "mode": "list"
+        },
+        "id": "={{ $json.id }}",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldName": "status",
+              "fieldValue": "confirmed"
+            },
+            {
+              "fieldName": "confirmedAt",
+              "fieldValue": "={{ new Date().toISOString() }}"
+            }
+          ]
+        }
+      },
+      "id": "node_18_airtable-confirm-appointment",
+      "name": "🗄️ Airtable - Confirm Appointment",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [
+        860,
+        12900
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Preparar mensagem WhatsApp de confirmação (usa processMessageVariables do GAS linha 7591)\nconst out = [];\nfor (const { json } of items) {\n  const fields = json.fields || {};\n  const phone = (fields.customerPhone || '').replace(/\\D/g, '');\n  const name = fields.customerName || 'Cliente';\n  const datetime = new Date(fields.datetime);\n  const data = datetime.toLocaleDateString('pt-BR');\n  const hora = datetime.toLocaleTimeString('pt-BR', {hour: '2-digit', minute: '2-digit'});\n  \n  // Saudação automática\n  const hour = new Date().getHours();\n  const saudacao = hour < 12 ? 'Bom dia' : hour < 18 ? 'Boa tarde' : 'Boa noite';\n  \n  const message = `${saudacao}, ${name}! ✅ Seu agendamento foi CONFIRMADO para ${data} às ${hora}. Até lá!`;\n  \n  out.push({\n    json: {\n      to: phone.length === 11 ? '55' + phone : phone,\n      message: message,\n      customerEmail: fields.customerEmail,\n      appointmentId: fields.id,\n      timestamp: new Date().toISOString()\n    }\n  });\n}\nreturn out;"
+      },
+      "id": "node_19_code-prep-confirm-whatsapp",
+      "name": "📱 Code - Prep WhatsApp Confirm",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1060,
+        12900
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://graph.facebook.com/v18.0/PHONE_ID/messages",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer {{ $json.WHATSAPP_TOKEN }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "messaging_product",
+              "value": "whatsapp"
+            },
+            {
+              "name": "to",
+              "value": "={{ $json.to }}"
+            },
+            {
+              "name": "type",
+              "value": "text"
+            },
+            {
+              "name": "text",
+              "value": "={{ { body: $json.message } }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "node_20_http-whatsapp-confirm-notif",
+      "name": "📱 HTTP - WhatsApp Confirm Notif",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        1260,
+        12900
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { success: true, message: 'Agendamento confirmado e notificação enviada', timestamp: new Date().toISOString() } }}",
+        "options": {
+          "headers": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          }
+        }
+      },
+      "id": "node_21_respond-appointment-confirm",
+      "name": "📤 Respond - Appointment Confirm",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1460,
+        12900
+      ]
+    }
+  ],
+  "connections": {
+    "node_1_webhook-appointments-list": {
+      "main": [
+        [
+          {
+            "node": "node_2_respond-appointments-list",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "node_3_process-webhook-appointments-list",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "node_2_respond-appointments-list": {
+      "main": [
+        [
+          {
+            "node": "node_2_respond-appointments-list",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "node_3_process-webhook-appointments-list": {
+      "main": [
+        [
+          {
+            "node": "node_4_respond-process-webhook-appointments-list",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "node_5_webhook-appointment-create": {
+      "main": [
+        [
+          {
+            "node": "node_6_respond-appointment-create",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "node_7_process-webhook-appointment-create",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "node_6_respond-appointment-create": {
+      "main": [
+        [
+          {
+            "node": "node_6_respond-appointment-create",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "node_7_process-webhook-appointment-create": {
+      "main": [
+        [
+          {
+            "node": "node_4_respond-process-webhook-appointments-list",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "node_8_webhook-appointment-cancel": {
+      "main": [
+        [
+          {
+            "node": "node_9_code-appointment-cancel-prep",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "node_14_respond-appointment-cancel",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "node_9_code-appointment-cancel-prep": {
+      "main": [
+        [
+          {
+            "node": "node_10_airtable-search-appointment-cancel",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "node_10_airtable-search-appointment-cancel": {
+      "main": [
+        [
+          {
+            "node": "node_11_airtable-cancel-appointment",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "node_11_airtable-cancel-appointment": {
+      "main": [
+        [
+          {
+            "node": "node_12_code-prep-cancel-whatsapp",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "node_12_code-prep-cancel-whatsapp": {
+      "main": [
+        [
+          {
+            "node": "node_13_http-whatsapp-cancel-notif",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "node_13_http-whatsapp-cancel-notif": {
+      "main": [
+        [
+          {
+            "node": "node_14_respond-appointment-cancel",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "node_15_webhook-appointment-confirm": {
+      "main": [
+        [
+          {
+            "node": "node_16_code-appointment-confirm-prep",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "node_21_respond-appointment-confirm",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "node_16_code-appointment-confirm-prep": {
+      "main": [
+        [
+          {
+            "node": "node_17_airtable-search-appointment-confirm",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "node_17_airtable-search-appointment-confirm": {
+      "main": [
+        [
+          {
+            "node": "node_18_airtable-confirm-appointment",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "node_18_airtable-confirm-appointment": {
+      "main": [
+        [
+          {
+            "node": "node_19_code-prep-confirm-whatsapp",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "node_19_code-prep-confirm-whatsapp": {
+      "main": [
+        [
+          {
+            "node": "node_20_http-whatsapp-confirm-notif",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "node_20_http-whatsapp-confirm-notif": {
+      "main": [
+        [
+          {
+            "node": "node_21_respond-appointment-confirm",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": [
+    "optimized",
+    "elevea",
+    "modular"
+  ]
+}

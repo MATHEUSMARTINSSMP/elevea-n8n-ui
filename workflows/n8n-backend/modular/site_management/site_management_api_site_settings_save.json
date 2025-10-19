@@ -1,0 +1,358 @@
+{
+  "name": "site_management_api_site_settings_save",
+  "description": "Workflow modular para api/site/settings/save - Módulo SITE_MANAGEMENT",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "api/site/settings/save",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "webhook-save-site-settings",
+      "name": "⚙️ Webhook - Save Site Settings",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [
+        260,
+        7100
+      ],
+      "webhookId": "elevea-save-site-settings"
+    },
+    {
+      "parameters": {
+        "jsCode": "// FUNÇÃO: save_settings / saveSettings_ (do GAS)\nconst out = [];\nfor (const { json } of items) {\n  const { siteSlug, seo, analytics, social, contact, features, branding, integrations } = json.body || {};\n  \n  if (!siteSlug) {\n    out.push({\n      json: {\n        success: false,\n        error: 'siteSlug é obrigatório',\n        timestamp: new Date().toISOString()\n      }\n    });\n    continue;\n  }\n  \n  out.push({\n    json: {\n      siteSlug,\n      seo: JSON.stringify(seo || {}),\n      analytics: JSON.stringify(analytics || {}),\n      social: JSON.stringify(social || {}),\n      contact: JSON.stringify(contact || {}),\n      features: JSON.stringify(features || {}),\n      branding: JSON.stringify(branding || {}),\n      integrations: JSON.stringify(integrations || {}),\n      timestamp: new Date().toISOString()\n    }\n  });\n}\nreturn out;"
+      },
+      "id": "code-save-site-settings",
+      "name": "⚙️ Code - Save Site Settings",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        460,
+        7100
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "search",
+        "base": {
+          "__rl": true,
+          "value": "appELEVEA",
+          "mode": "list"
+        },
+        "table": {
+          "__rl": true,
+          "value": "site_settings",
+          "mode": "list"
+        },
+        "filterByFormula": "=AND({siteSlug}='{{ $json.siteSlug }}')",
+        "options": {}
+      },
+      "id": "airtable-check-settings-exists",
+      "name": "🗄️ Airtable - Check Settings Exists",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [
+        660,
+        7100
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json.id ? true : false }}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "if-settings-exists",
+      "name": "🔀 IF - Settings Exists",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        860,
+        7100
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "base": {
+          "__rl": true,
+          "value": "appELEVEA",
+          "mode": "list"
+        },
+        "table": {
+          "__rl": true,
+          "value": "site_settings",
+          "mode": "list"
+        },
+        "id": "={{ $json.id }}",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldName": "seo",
+              "fieldValue": "={{ $json.seo }}"
+            },
+            {
+              "fieldName": "analytics",
+              "fieldValue": "={{ $json.analytics }}"
+            },
+            {
+              "fieldName": "social",
+              "fieldValue": "={{ $json.social }}"
+            },
+            {
+              "fieldName": "contact",
+              "fieldValue": "={{ $json.contact }}"
+            },
+            {
+              "fieldName": "features",
+              "fieldValue": "={{ $json.features }}"
+            },
+            {
+              "fieldName": "branding",
+              "fieldValue": "={{ $json.branding }}"
+            },
+            {
+              "fieldName": "integrations",
+              "fieldValue": "={{ $json.integrations }}"
+            },
+            {
+              "fieldName": "updated_at",
+              "fieldValue": "={{ new Date().toISOString() }}"
+            }
+          ]
+        }
+      },
+      "id": "airtable-update-site-settings",
+      "name": "🗄️ Airtable - Update Site Settings",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [
+        1060,
+        7000
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { success: true, message: 'Configurações do site salvas', siteSlug: $json.siteSlug, timestamp: new Date().toISOString() } }}",
+        "options": {
+          "headers": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          }
+        }
+      },
+      "id": "respond-save-site-settings",
+      "name": "📤 Respond - Save Site Settings",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1260,
+        7100
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { success: true, message: '🔀 IF - Settings Exists processado', timestamp: new Date().toISOString() } }}",
+        "options": {}
+      },
+      "id": "respond-if-settings-exists",
+      "name": "📤 Respond - Settings Exists",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        800,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "base": {
+          "__rl": true,
+          "value": "appELEVEA",
+          "mode": "list"
+        },
+        "table": {
+          "__rl": true,
+          "value": "site_settings",
+          "mode": "list"
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldName": "site_slug",
+              "fieldValue": "={{ $json.siteSlug }}"
+            },
+            {
+              "fieldName": "seo",
+              "fieldValue": "={{ $json.seo }}"
+            },
+            {
+              "fieldName": "analytics",
+              "fieldValue": "={{ $json.analytics }}"
+            },
+            {
+              "fieldName": "social",
+              "fieldValue": "={{ $json.social }}"
+            },
+            {
+              "fieldName": "contact",
+              "fieldValue": "={{ $json.contact }}"
+            },
+            {
+              "fieldName": "features",
+              "fieldValue": "={{ $json.features }}"
+            },
+            {
+              "fieldName": "branding",
+              "fieldValue": "={{ $json.branding }}"
+            },
+            {
+              "fieldName": "integrations",
+              "fieldValue": "={{ $json.integrations }}"
+            }
+          ]
+        }
+      },
+      "id": "airtable-insert-site-settings",
+      "name": "🗄️ Airtable - Insert Site Settings",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [
+        1060,
+        7200
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { success: true, message: '🗄️ Airtable - Check Settings Exists processado', timestamp: new Date().toISOString() } }}",
+        "options": {}
+      },
+      "id": "respond-airtable-check-settings-exists",
+      "name": "📤 Respond - Check Settings Exists",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        800,
+        100
+      ]
+    }
+  ],
+  "connections": {
+    "webhook-save-site-settings": {
+      "main": [
+        [
+          {
+            "node": "code-save-site-settings",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "respond-save-site-settings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "code-save-site-settings": {
+      "main": [
+        [
+          {
+            "node": "airtable-check-settings-exists",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "respond-save-site-settings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "airtable-check-settings-exists": {
+      "main": [
+        [
+          {
+            "node": "if-settings-exists",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "respond-airtable-check-settings-exists",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "if-settings-exists": {
+      "main": [
+        [
+          {
+            "node": "airtable-update-site-settings",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "respond-if-settings-exists",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "airtable-insert-site-settings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "airtable-update-site-settings": {
+      "main": [
+        [
+          {
+            "node": "respond-save-site-settings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "airtable-insert-site-settings": {
+      "main": [
+        [
+          {
+            "node": "respond-save-site-settings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": [
+    "modular",
+    "elevea",
+    "site_management"
+  ]
+}

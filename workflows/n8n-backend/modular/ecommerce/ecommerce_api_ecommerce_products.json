@@ -1,0 +1,124 @@
+{
+  "name": "ecommerce_api_ecommerce_products",
+  "description": "Workflow modular para api/ecommerce/products - Módulo ECOMMERCE",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "GET",
+        "path": "api/ecommerce/products",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "webhook-products-list",
+      "name": "🛒 Webhook - Products List",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [
+        260,
+        9900
+      ],
+      "webhookId": "elevea-products-list"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {
+          "headers": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          }
+        }
+      },
+      "id": "respond-products-list",
+      "name": "📤 Respond - Products List",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1460,
+        9900
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Processar dados do webhook\nreturn [{ json: $input.first().json }];"
+      },
+      "id": "process-webhook-products-list",
+      "name": "🔧 Process - 🛒 Webhook - Products List",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        400,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { success: true, message: '🔧 Process - 🛒 Webhook - Products List processado', timestamp: new Date().toISOString() } }}",
+        "options": {}
+      },
+      "id": "respond-process-webhook-products-list",
+      "name": "📤 Respond - 🛒 Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        800,
+        100
+      ]
+    }
+  ],
+  "connections": {
+    "webhook-products-list": {
+      "main": [
+        [
+          {
+            "node": "respond-products-list",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "process-webhook-products-list",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "respond-products-list": {
+      "main": [
+        [
+          {
+            "node": "respond-products-list",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "process-webhook-products-list": {
+      "main": [
+        [
+          {
+            "node": "respond-process-webhook-products-list",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": [
+    "modular",
+    "elevea",
+    "ecommerce"
+  ]
+}

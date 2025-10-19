@@ -1,0 +1,158 @@
+{
+  "name": "billing_api_client_status",
+  "description": "Workflow modular para api/client/status - Módulo BILLING",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "api/client/status",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "webhook-client-status",
+      "name": "📊 Webhook - Client Status",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [
+        260,
+        1700
+      ],
+      "webhookId": "elevea-client-status"
+    },
+    {
+      "parameters": {
+        "jsCode": "// FUNÇÃO: get_status / get_auth_status (do GAS)\nconst out = [];\nfor (const { json } of items) {\n  const { siteSlug } = json.body || {};\n  \n  if (!siteSlug) {\n    out.push({\n      json: {\n        success: false,\n        error: 'siteSlug é obrigatório',\n        timestamp: new Date().toISOString()\n      }\n    });\n    continue;\n  }\n  \n  out.push({ json: { siteSlug, timestamp: new Date().toISOString() } });\n}\nreturn out;"
+      },
+      "id": "code-client-status",
+      "name": "📊 Code - Client Status",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        460,
+        1700
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "search",
+        "base": {
+          "__rl": true,
+          "value": "appELEVEA",
+          "mode": "list"
+        },
+        "table": {
+          "__rl": true,
+          "value": "clients",
+          "mode": "list"
+        },
+        "filterByFormula": "=AND({siteSlug}='{{ $json.siteSlug }}')",
+        "options": {}
+      },
+      "id": "airtable-search-client-status",
+      "name": "🗄️ Airtable - Search Client Status",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [
+        660,
+        1700
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Retornar status do cliente\nconst out = [];\nfor (const { json } of items) {\n  const client = json.fields || {};\n  out.push({\n    json: {\n      success: true,\n      status: {\n        siteSlug: client.siteSlug,\n        status: client.status || 'active',\n        plan: client.plan || 'essential',\n        isActive: (client.status || 'active') === 'active',\n        isBlocked: (client.status || 'active') === 'blocked',\n        manualBlock: client.manual_block || false,\n        blockReason: client.block_reason || null,\n        lastPayment: client.last_payment || null\n      },\n      timestamp: new Date().toISOString()\n    }\n  });\n}\nreturn out;"
+      },
+      "id": "code-format-client-status",
+      "name": "📊 Code - Format Client Status",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        860,
+        1700
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {
+          "headers": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          }
+        }
+      },
+      "id": "respond-client-status",
+      "name": "📤 Respond - Client Status",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1060,
+        1700
+      ]
+    }
+  ],
+  "connections": {
+    "webhook-client-status": {
+      "main": [
+        [
+          {
+            "node": "code-client-status",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "respond-client-status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "code-client-status": {
+      "main": [
+        [
+          {
+            "node": "airtable-search-client-status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "airtable-search-client-status": {
+      "main": [
+        [
+          {
+            "node": "code-format-client-status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "code-format-client-status": {
+      "main": [
+        [
+          {
+            "node": "respond-client-status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": [
+    "modular",
+    "elevea",
+    "billing"
+  ]
+}

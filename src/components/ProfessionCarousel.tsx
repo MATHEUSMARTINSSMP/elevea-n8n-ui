@@ -9,22 +9,22 @@ import {
 } from '@/components/ui/carousel';
 import type { CarouselApi } from '@/components/ui/carousel';
 
-// Imagens das profissões
-import dentistImg from '@/assets/professions/dentist.jpg';
-import lawyerImg from '@/assets/professions/lawyer.jpg';
-import aestheticianImg from '@/assets/professions/aesthetician.jpg';
-import manicuristImg from '@/assets/professions/manicurist.jpg';
-import salonImg from '@/assets/professions/salon.jpg';
-import accountantImg from '@/assets/professions/accountant.jpg';
-import smallBusinessImg from '@/assets/professions/small-business.jpg';
-import pharmacistImg from '@/assets/professions/pharmacist.jpg';
-import tireShopImg from '@/assets/professions/tire-shop.jpg';
-import laundryImg from '@/assets/professions/laundry.jpg';
-import restaurantImg from '@/assets/professions/restaurant.jpg';
-import barberImg from '@/assets/professions/barber.jpg';
-import petShopImg from '@/assets/professions/pet-shop.jpg';
-import gymImg from '@/assets/professions/gym.jpg';
-import psychologistImg from '@/assets/professions/psychologist.jpg';
+// Usando placeholder para as profissões até ter as imagens reais
+const dentistImg = '/placeholder.svg';
+const lawyerImg = '/placeholder.svg';
+const aestheticianImg = '/placeholder.svg';
+const manicuristImg = '/placeholder.svg';
+const salonImg = '/placeholder.svg';
+const accountantImg = '/placeholder.svg';
+const smallBusinessImg = '/placeholder.svg';
+const pharmacistImg = '/placeholder.svg';
+const tireShopImg = '/placeholder.svg';
+const laundryImg = '/placeholder.svg';
+const restaurantImg = '/placeholder.svg';
+const barberImg = '/placeholder.svg';
+const petShopImg = '/placeholder.svg';
+const gymImg = '/placeholder.svg';
+const psychologistImg = '/placeholder.svg';
 
 const professions = [
   { name: 'Dentista', image: dentistImg },

@@ -1,0 +1,312 @@
+{
+  "name": "analytics_complete",
+  "description": "Sistema completo de analytics",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "api/analytics/track",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "node_1_webhook-analytics-track",
+      "name": "📊 Webhook - Analytics Track",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [
+        260,
+        4900
+      ],
+      "webhookId": "elevea-analytics-track"
+    },
+    {
+      "parameters": {
+        "jsCode": "// FUNÇÃO: record_hit / recordHit_ / recordEvent_ (do GAS)\nconst out = [];\nfor (const { json } of items) {\n  const { siteSlug, eventType, eventData, pageUrl, referrer, ipAddress, userAgent } = json.body || {};\n  \n  if (!siteSlug || !eventType) {\n    out.push({\n      json: {\n        success: false,\n        error: 'siteSlug e eventType são obrigatórios',\n        timestamp: new Date().toISOString()\n      }\n    });\n    continue;\n  }\n  \n  // Detectar tipo de dispositivo\n  const ua = userAgent || '';\n  let deviceType = 'desktop';\n  if (ua.includes('Mobile') || ua.includes('Android')) deviceType = 'mobile';\n  if (ua.includes('Tablet') || ua.includes('iPad')) deviceType = 'tablet';\n  \n  // Detectar navegador\n  let browser = 'unknown';\n  if (ua.includes('Chrome')) browser = 'chrome';\n  else if (ua.includes('Firefox')) browser = 'firefox';\n  else if (ua.includes('Safari')) browser = 'safari';\n  else if (ua.includes('Edge')) browser = 'edge';\n  \n  out.push({\n    json: {\n      siteSlug,\n      eventType,\n      eventData: JSON.stringify(eventData || {}),\n      pageUrl: pageUrl || '',\n      referrer: referrer || '',\n      ipAddress: ipAddress || '',\n      userAgent: userAgent || '',\n      deviceType,\n      browser,\n      timestamp: new Date().toISOString()\n    }\n  });\n}\nreturn out;"
+      },
+      "id": "node_2_code-analytics-track",
+      "name": "📊 Code - Analytics Track",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        460,
+        4900
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "base": {
+          "__rl": true,
+          "value": "appELEVEA",
+          "mode": "list"
+        },
+        "table": {
+          "__rl": true,
+          "value": "analytics_events",
+          "mode": "list"
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldName": "site_slug",
+              "fieldValue": "={{ $json.siteSlug }}"
+            },
+            {
+              "fieldName": "event_type",
+              "fieldValue": "={{ $json.eventType }}"
+            },
+            {
+              "fieldName": "event_data",
+              "fieldValue": "={{ $json.eventData }}"
+            },
+            {
+              "fieldName": "page_url",
+              "fieldValue": "={{ $json.pageUrl }}"
+            },
+            {
+              "fieldName": "referrer",
+              "fieldValue": "={{ $json.referrer }}"
+            },
+            {
+              "fieldName": "ip_address",
+              "fieldValue": "={{ $json.ipAddress }}"
+            },
+            {
+              "fieldName": "user_agent",
+              "fieldValue": "={{ $json.userAgent }}"
+            },
+            {
+              "fieldName": "device_type",
+              "fieldValue": "={{ $json.deviceType }}"
+            },
+            {
+              "fieldName": "browser",
+              "fieldValue": "={{ $json.browser }}"
+            }
+          ]
+        }
+      },
+      "id": "node_3_airtable-insert-analytics-event",
+      "name": "🗄️ Airtable - Insert Analytics Event",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [
+        660,
+        4900
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { success: true, message: 'Evento rastreado', timestamp: new Date().toISOString() } }}",
+        "options": {
+          "headers": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          }
+        }
+      },
+      "id": "node_4_respond-analytics-track",
+      "name": "📤 Respond - Analytics Track",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        860,
+        4900
+      ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "GET",
+        "path": "api/analytics/dashboard",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "node_5_webhook-analytics-dashboard",
+      "name": "📊 Webhook - Analytics Dashboard",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [
+        260,
+        5100
+      ],
+      "webhookId": "elevea-analytics-dashboard"
+    },
+    {
+      "parameters": {
+        "jsCode": "// FUNÇÃO: get_analytics / get_traffic (do GAS)\nconst out = [];\nfor (const { json } of items) {\n  const query = json.query || {};\n  const { siteSlug, startDate, endDate } = query;\n  \n  out.push({\n    json: {\n      siteSlug: siteSlug || 'all',\n      startDate: startDate || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(),\n      endDate: endDate || new Date().toISOString(),\n      timestamp: new Date().toISOString()\n    }\n  });\n}\nreturn out;"
+      },
+      "id": "node_6_code-analytics-dashboard",
+      "name": "📊 Code - Analytics Dashboard",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        460,
+        5100
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "list",
+        "base": {
+          "__rl": true,
+          "value": "appELEVEA",
+          "mode": "list"
+        },
+        "table": {
+          "__rl": true,
+          "value": "analytics_events",
+          "mode": "list"
+        },
+        "options": {}
+      },
+      "id": "node_7_airtable-list-analytics",
+      "name": "🗄️ Airtable - List Analytics",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [
+        660,
+        5100
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Processar e agregar analytics\nconst out = [];\nconst events = items.map(i => i.json.fields || {});\n\n// Contar por tipo de evento\nconst eventCounts = {};\nevents.forEach(e => {\n  const type = e.event_type || 'unknown';\n  eventCounts[type] = (eventCounts[type] || 0) + 1;\n});\n\n// Contar por dispositivo\nconst deviceCounts = {};\nevents.forEach(e => {\n  const device = e.device_type || 'unknown';\n  deviceCounts[device] = (deviceCounts[device] || 0) + 1;\n});\n\n// Contar por navegador\nconst browserCounts = {};\nevents.forEach(e => {\n  const browser = e.browser || 'unknown';\n  browserCounts[browser] = (browserCounts[browser] || 0) + 1;\n});\n\nout.push({\n  json: {\n    success: true,\n    analytics: {\n      totalEvents: events.length,\n      eventsByType: eventCounts,\n      deviceBreakdown: deviceCounts,\n      browserBreakdown: browserCounts,\n      topEvents: Object.entries(eventCounts).sort((a, b) => b[1] - a[1]).slice(0, 5)\n    },\n    timestamp: new Date().toISOString()\n  }\n});\nreturn out;"
+      },
+      "id": "node_8_code-process-analytics",
+      "name": "📊 Code - Process Analytics",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        860,
+        5100
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {
+          "headers": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          }
+        }
+      },
+      "id": "node_9_respond-analytics-dashboard",
+      "name": "📤 Respond - Analytics Dashboard",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1060,
+        5100
+      ]
+    }
+  ],
+  "connections": {
+    "node_1_webhook-analytics-track": {
+      "main": [
+        [
+          {
+            "node": "node_2_code-analytics-track",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "node_4_respond-analytics-track",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "node_2_code-analytics-track": {
+      "main": [
+        [
+          {
+            "node": "node_3_airtable-insert-analytics-event",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "node_3_airtable-insert-analytics-event": {
+      "main": [
+        [
+          {
+            "node": "node_4_respond-analytics-track",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "node_5_webhook-analytics-dashboard": {
+      "main": [
+        [
+          {
+            "node": "node_6_code-analytics-dashboard",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "node_9_respond-analytics-dashboard",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "node_6_code-analytics-dashboard": {
+      "main": [
+        [
+          {
+            "node": "node_7_airtable-list-analytics",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "node_7_airtable-list-analytics": {
+      "main": [
+        [
+          {
+            "node": "node_8_code-process-analytics",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "node_8_code-process-analytics": {
+      "main": [
+        [
+          {
+            "node": "node_9_respond-analytics-dashboard",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": [
+    "optimized",
+    "elevea",
+    "modular"
+  ]
+}

@@ -1,0 +1,945 @@
+{
+  "name": "billing_mercado_pago",
+  "description": "Webhook e processamento do Mercado Pago",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "api/mercadopago/webhook",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "node_1_webhook-mercadopago",
+      "name": "💰 Webhook - Mercado Pago",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [
+        260,
+        2100
+      ],
+      "webhookId": "elevea-mercadopago"
+    },
+    {
+      "parameters": {
+        "jsCode": "// FUNÇÃO: mercadopago_webhook / mp_ (do GAS) - PROCESSAMENTO COMPLETO\nconst out = [];\nfor (const { json } of items) {\n  const body = json.body || {};\n  const { type, action, data } = body;\n  \n  // Eventos do Mercado Pago\n  const eventType = type || action;\n  \n  if (!eventType) {\n    out.push({\n      json: {\n        success: false,\n        error: 'Evento não identificado',\n        timestamp: new Date().toISOString()\n      }\n    });\n    continue;\n  }\n  \n  // Processar diferentes tipos de eventos\n  if (eventType === 'subscription_authorized' || eventType === 'payment.approved') {\n    const siteSlug = data?.external_reference || data?.metadata?.site_slug || 'unknown';\n    out.push({\n      json: {\n        eventType: 'subscription_authorized',\n        siteSlug: siteSlug,\n        newPlan: 'vip',\n        newStatus: 'active',\n        preapprovalId: data?.id || data?.preapproval_id,\n        amount: data?.transaction_amount || 97,\n        paymentDate: new Date().toISOString(),\n        action: 'activate',\n        timestamp: new Date().toISOString()\n      }\n    });\n  } else if (eventType === 'subscription_paused' || eventType === 'subscription_cancelled' || eventType === 'payment.cancelled') {\n    const siteSlug = data?.external_reference || data?.metadata?.site_slug || 'unknown';\n    out.push({\n      json: {\n        eventType: eventType,\n        siteSlug: siteSlug,\n        newPlan: 'essential',\n        newStatus: 'blocked',\n        preapprovalId: data?.id || data?.preapproval_id,\n        action: 'block',\n        reason: 'Assinatura cancelada/pausada',\n        timestamp: new Date().toISOString()\n      }\n    });\n  } else if (eventType === 'payment_created' || eventType === 'payment.created') {\n    const siteSlug = data?.external_reference || data?.metadata?.site_slug || 'unknown';\n    out.push({\n      json: {\n        eventType: 'payment_created',\n        siteSlug: siteSlug,\n        paymentId: data?.id,\n        amount: data?.transaction_amount,\n        status: 'pending',\n        action: 'log_only',\n        timestamp: new Date().toISOString()\n      }\n    });\n  } else {\n    out.push({\n      json: {\n        eventType: 'unknown',\n        rawData: body,\n        action: 'log_only',\n        timestamp: new Date().toISOString()\n      }\n    });\n  }\n}\nreturn out;"
+      },
+      "id": "node_2_code-process-mercadopago",
+      "name": "💰 Code - Process Mercado Pago",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        460,
+        2100
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.action }}",
+              "operation": "equals",
+              "value2": "activate"
+            }
+          ]
+        }
+      },
+      "id": "node_3_if-mp-action",
+      "name": "🔀 IF - MP Action",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        660,
+        2100
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "search",
+        "base": {
+          "__rl": true,
+          "value": "appELEVEA",
+          "mode": "list"
+        },
+        "table": {
+          "__rl": true,
+          "value": "billing",
+          "mode": "list"
+        },
+        "filterByFormula": "=AND({siteSlug}='{{ $json.siteSlug }}')",
+        "options": {}
+      },
+      "id": "node_4_airtable-search-billing-mp",
+      "name": "🗄️ Airtable - Search Billing MP",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [
+        860,
+        2000
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Preparar update ou insert de billing\nconst out = [];\nfor (const { json } of items) {\n  const hasRecord = json.id ? true : false;\n  out.push({\n    json: {\n      hasRecord,\n      recordId: json.id || null,\n      siteSlug: json.siteSlug,\n      preapprovalId: json.preapprovalId,\n      paymentDate: json.paymentDate,\n      amount: json.amount,\n      status: json.eventType === 'subscription_authorized' ? 'authorized' : 'paused',\n      provider: 'mercadopago'\n    }\n  });\n}\nreturn out;"
+      },
+      "id": "node_5_code-prepare-billing-update",
+      "name": "📝 Code - Prepare Billing Update",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1060,
+        2000
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json.hasRecord }}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "node_6_if-billing-exists",
+      "name": "🔀 IF - Billing Exists",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        1260,
+        2000
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "base": {
+          "__rl": true,
+          "value": "appELEVEA",
+          "mode": "list"
+        },
+        "table": {
+          "__rl": true,
+          "value": "billing",
+          "mode": "list"
+        },
+        "id": "={{ $json.recordId }}",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldName": "preapproval_id",
+              "fieldValue": "={{ $json.preapprovalId }}"
+            },
+            {
+              "fieldName": "payment_date",
+              "fieldValue": "={{ $json.paymentDate }}"
+            },
+            {
+              "fieldName": "amount",
+              "fieldValue": "={{ $json.amount }}"
+            },
+            {
+              "fieldName": "status",
+              "fieldValue": "={{ $json.status }}"
+            },
+            {
+              "fieldName": "updated_at",
+              "fieldValue": "={{ new Date().toISOString() }}"
+            }
+          ]
+        }
+      },
+      "id": "node_7_airtable-update-billing",
+      "name": "🗄️ Airtable - Update Billing",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [
+        1460,
+        1900
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "search",
+        "base": {
+          "__rl": true,
+          "value": "appELEVEA",
+          "mode": "list"
+        },
+        "table": {
+          "__rl": true,
+          "value": "clients",
+          "mode": "list"
+        },
+        "filterByFormula": "=AND({siteSlug}='{{ $json.siteSlug }}')",
+        "options": {}
+      },
+      "id": "node_8_airtable-search-client-mp",
+      "name": "🗄️ Airtable - Search Client MP",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [
+        1660,
+        2000
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "base": {
+          "__rl": true,
+          "value": "appELEVEA",
+          "mode": "list"
+        },
+        "table": {
+          "__rl": true,
+          "value": "clients",
+          "mode": "list"
+        },
+        "id": "={{ $json.id }}",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldName": "plan",
+              "fieldValue": "={{ $json.newPlan }}"
+            },
+            {
+              "fieldName": "status",
+              "fieldValue": "={{ $json.newStatus }}"
+            },
+            {
+              "fieldName": "preapproval_id",
+              "fieldValue": "={{ $json.preapprovalId }}"
+            },
+            {
+              "fieldName": "last_payment",
+              "fieldValue": "={{ $json.paymentDate }}"
+            },
+            {
+              "fieldName": "updated_at",
+              "fieldValue": "={{ new Date().toISOString() }}"
+            }
+          ]
+        }
+      },
+      "id": "node_9_airtable-update-client-mp",
+      "name": "🗄️ Airtable - Update Client MP",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [
+        1860,
+        2000
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Preparar notificação de mudança de plano\nconst out = [];\nfor (const { json } of items) {\n  const fields = json.fields || {};\n  const isActivation = json.newStatus === 'active';\n  \n  out.push({\n    json: {\n      siteSlug: fields.siteSlug || json.siteSlug,\n      email: fields.email,\n      name: fields.name,\n      newPlan: json.newPlan,\n      newStatus: json.newStatus,\n      isActivation: isActivation,\n      emailSubject: isActivation ? '🎉 Bem-vindo ao Plano VIP - ELEVEA' : '⚠️ Assinatura Cancelada - ELEVEA',\n      emailMessage: isActivation \n        ? 'Parabéns! Seu plano VIP foi ativado com sucesso. Agora você tem acesso a todas as funcionalidades premium!' \n        : 'Sua assinatura foi cancelada. Você foi movido para o plano Essential com funcionalidades limitadas.',\n      timestamp: new Date().toISOString()\n    }\n  });\n}\nreturn out;"
+      },
+      "id": "node_10_code-prepare-mp-notification",
+      "name": "📧 Code - Prepare MP Notification",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2060,
+        2000
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://api.resend.com/emails",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ {\n  \"from\": \"noreply@elevea.com\",\n  \"to\": [ $json.email ],\n  \"subject\": $json.emailSubject,\n  \"html\": \"<div style='font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;'>\" +\n    \"<h2 style='color: #333; text-align: center;'>\" + $json.emailSubject + \"</h2>\" +\n    \"<p>Olá \" + ($json.name || 'Cliente') + \"!</p>\" +\n    \"<p>\" + $json.emailMessage + \"</p>\" +\n    \"<div style='background: #f8f9fa; padding: 20px; margin: 20px 0; border-radius: 5px;'>\" +\n      \"<p><strong>Detalhes:</strong></p>\" +\n      \"<ul>\" +\n        \"<li>Site: \" + $json.siteSlug + \"</li>\" +\n        \"<li>Plano: \" + $json.newPlan.toUpperCase() + \"</li>\" +\n        \"<li>Status: \" + ($json.isActivation ? 'Ativo ✅' : 'Bloqueado ❌') + \"</li>\" +\n      \"</ul>\" +\n    \"</div>\" +\n    ($json.isActivation ? \n      \"<div style='text-align: center; margin: 30px 0;'>\" +\n        \"<a href='https://agenciaelevea.netlify.app/dashboard' style='background: #28a745; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; display: inline-block;'>Acessar Dashboard</a>\" +\n      \"</div>\" : \n      \"<div style='text-align: center; margin: 30px 0;'>\" +\n        \"<a href='https://agenciaelevea.netlify.app/upgrade' style='background: #007bff; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; display: inline-block;'>Reativar Plano VIP</a>\" +\n      \"</div>\"\n    ) +\n    \"<hr style='margin: 30px 0; border: none; border-top: 1px solid #eee;'>\" +\n    \"<p style='color: #666; font-size: 12px; text-align: center;'>Equipe ELEVEA</p>\" +\n    \"</div>\"\n} }}",
+        "options": {}
+      },
+      "id": "node_11_http-resend-mp-notification",
+      "name": "📧 HTTP - Resend MP Notification",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2260,
+        2000
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://api.telegram.org/bot{{ $env.TELEGRAM_BOT_TOKEN }}/sendMessage",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ {\n  \"chat_id\": $env.TELEGRAM_CHAT_ID,\n  \"text\": \"💰 Mercado Pago - \" + ($json.isActivation ? 'ATIVAÇÃO' : 'CANCELAMENTO') + \"\\n\\n\" +\n    \"Site: \" + $json.siteSlug + \"\\n\" +\n    \"Plano: \" + $json.newPlan.toUpperCase() + \"\\n\" +\n    \"Status: \" + $json.newStatus + \"\\n\" +\n    \"Email: \" + $json.email + \"\\n\" +\n    \"Timestamp: \" + new Date().toISOString(),\n  \"parse_mode\": \"HTML\"\n} }}",
+        "options": {}
+      },
+      "id": "node_12_http-telegram-mp-alert",
+      "name": "📱 HTTP - Telegram MP Alert",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2460,
+        2000
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json.isActivation }}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "node_13_if-mp-activation",
+      "name": "🔀 IF - MP Activation",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        2660,
+        2000
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://api.netlify.com/build_hooks/{{ $env.NETLIFY_BUILD_HOOK }}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ {\n  \"trigger_title\": \"Site ativado: \" + $json.siteSlug,\n  \"trigger_branch\": \"main\"\n} }}",
+        "options": {}
+      },
+      "id": "node_14_http-netlify-rebuild-activate",
+      "name": "🏗️ HTTP - Netlify Rebuild (Activate)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2860,
+        1900
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "base": {
+          "__rl": true,
+          "value": "appELEVEA",
+          "mode": "list"
+        },
+        "table": {
+          "__rl": true,
+          "value": "audit_logs",
+          "mode": "list"
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldName": "site_slug",
+              "fieldValue": "={{ $json.siteSlug }}"
+            },
+            {
+              "fieldName": "action",
+              "fieldValue": "={{ $json.action }}"
+            },
+            {
+              "fieldName": "user_email",
+              "fieldValue": "system"
+            },
+            {
+              "fieldName": "user_role",
+              "fieldValue": "system"
+            },
+            {
+              "fieldName": "details",
+              "fieldValue": "={{ $json.details }}"
+            },
+            {
+              "fieldName": "severity",
+              "fieldValue": "={{ $json.severity }}"
+            }
+          ]
+        }
+      },
+      "id": "node_15_airtable-insert-audit-mp",
+      "name": "🗄️ Airtable - Insert Audit MP",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [
+        3060,
+        2000
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { success: true, message: 'Webhook Mercado Pago processado', siteSlug: $json.siteSlug, action: $json.action, timestamp: new Date().toISOString() } }}",
+        "options": {
+          "headers": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          }
+        }
+      },
+      "id": "node_16_respond-mercadopago",
+      "name": "📤 Respond - Mercado Pago",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        3260,
+        2000
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { success: true, message: '🔀 IF - MP Activation processado', timestamp: new Date().toISOString() } }}",
+        "options": {}
+      },
+      "id": "node_17_respond-if-mp-activation",
+      "name": "📤 Respond - MP Activation",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        800,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Log de bloqueio do site\nconst out = [];\nfor (const { json } of items) {\n  out.push({\n    json: {\n      siteSlug: json.siteSlug,\n      action: 'site_blocked_payment_failed',\n      user_email: 'system',\n      user_role: 'system',\n      details: JSON.stringify({ reason: json.reason, eventType: json.eventType }),\n      severity: 'critical',\n      timestamp: new Date().toISOString()\n    }\n  });\n}\nreturn out;"
+      },
+      "id": "node_18_code-audit-site-blocked",
+      "name": "📝 Code - Audit Site Blocked",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2860,
+        2100
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { success: true, message: '📱 HTTP - Telegram MP Alert processado', timestamp: new Date().toISOString() } }}",
+        "options": {}
+      },
+      "id": "node_19_respond-http-telegram-mp-alert",
+      "name": "📤 Respond - Telegram MP Alert",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        800,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { success: true, message: '📧 HTTP - Resend MP Notification processado', timestamp: new Date().toISOString() } }}",
+        "options": {}
+      },
+      "id": "node_20_respond-http-resend-mp-notification",
+      "name": "📤 Respond - Resend MP Notification",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        800,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { success: true, message: '📧 Code - Prepare MP Notification processado', timestamp: new Date().toISOString() } }}",
+        "options": {}
+      },
+      "id": "node_21_respond-code-prepare-mp-notification",
+      "name": "📤 Respond - Prepare MP Notification",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        800,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { success: true, message: '🗄️ Airtable - Update Client MP processado', timestamp: new Date().toISOString() } }}",
+        "options": {}
+      },
+      "id": "node_22_respond-airtable-update-client-mp",
+      "name": "📤 Respond - Update Client MP",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        800,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { success: true, message: '🗄️ Airtable - Search Client MP processado', timestamp: new Date().toISOString() } }}",
+        "options": {}
+      },
+      "id": "node_23_respond-airtable-search-client-mp",
+      "name": "📤 Respond - Search Client MP",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        800,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { success: true, message: '🗄️ Airtable - Update Billing processado', timestamp: new Date().toISOString() } }}",
+        "options": {}
+      },
+      "id": "node_24_respond-airtable-update-billing",
+      "name": "📤 Respond - Update Billing",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        800,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { success: true, message: '🔀 IF - Billing Exists processado', timestamp: new Date().toISOString() } }}",
+        "options": {}
+      },
+      "id": "node_25_respond-if-billing-exists",
+      "name": "📤 Respond - Billing Exists",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        800,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "base": {
+          "__rl": true,
+          "value": "appELEVEA",
+          "mode": "list"
+        },
+        "table": {
+          "__rl": true,
+          "value": "billing",
+          "mode": "list"
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldName": "site_slug",
+              "fieldValue": "={{ $json.siteSlug }}"
+            },
+            {
+              "fieldName": "preapproval_id",
+              "fieldValue": "={{ $json.preapprovalId }}"
+            },
+            {
+              "fieldName": "payment_date",
+              "fieldValue": "={{ $json.paymentDate }}"
+            },
+            {
+              "fieldName": "amount",
+              "fieldValue": "={{ $json.amount }}"
+            },
+            {
+              "fieldName": "status",
+              "fieldValue": "={{ $json.status }}"
+            },
+            {
+              "fieldName": "provider",
+              "fieldValue": "mercadopago"
+            }
+          ]
+        }
+      },
+      "id": "node_26_airtable-insert-billing",
+      "name": "🗄️ Airtable - Insert Billing",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [
+        1460,
+        2100
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { success: true, message: '🗄️ Airtable - Insert Billing processado', timestamp: new Date().toISOString() } }}",
+        "options": {}
+      },
+      "id": "node_27_respond-airtable-insert-billing",
+      "name": "📤 Respond - Insert Billing",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        800,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { success: true, message: '📝 Code - Prepare Billing Update processado', timestamp: new Date().toISOString() } }}",
+        "options": {}
+      },
+      "id": "node_28_respond-code-prepare-billing-update",
+      "name": "📤 Respond - Prepare Billing Update",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        800,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { success: true, message: '🗄️ Airtable - Search Billing MP processado', timestamp: new Date().toISOString() } }}",
+        "options": {}
+      },
+      "id": "node_29_respond-airtable-search-billing-mp",
+      "name": "📤 Respond - Search Billing MP",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        800,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { success: true, message: '🔀 IF - MP Action processado', timestamp: new Date().toISOString() } }}",
+        "options": {}
+      },
+      "id": "node_30_respond-if-mp-action",
+      "name": "📤 Respond - MP Action",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        800,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { success: true, message: '💰 Code - Process Mercado Pago processado', timestamp: new Date().toISOString() } }}",
+        "options": {}
+      },
+      "id": "node_31_respond-code-process-mercadopago",
+      "name": "📤 Respond - Process Mercado Pago",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        800,
+        100
+      ]
+    }
+  ],
+  "connections": {
+    "node_1_webhook-mercadopago": {
+      "main": [
+        [
+          {
+            "node": "node_2_code-process-mercadopago",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "node_16_respond-mercadopago",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "node_2_code-process-mercadopago": {
+      "main": [
+        [
+          {
+            "node": "node_3_if-mp-action",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "node_31_respond-code-process-mercadopago",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "node_3_if-mp-action": {
+      "main": [
+        [
+          {
+            "node": "node_4_airtable-search-billing-mp",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "node_30_respond-if-mp-action",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "node_16_respond-mercadopago",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "node_4_airtable-search-billing-mp": {
+      "main": [
+        [
+          {
+            "node": "node_5_code-prepare-billing-update",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "node_29_respond-airtable-search-billing-mp",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "node_5_code-prepare-billing-update": {
+      "main": [
+        [
+          {
+            "node": "node_6_if-billing-exists",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "node_28_respond-code-prepare-billing-update",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "node_6_if-billing-exists": {
+      "main": [
+        [
+          {
+            "node": "node_7_airtable-update-billing",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "node_25_respond-if-billing-exists",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "node_26_airtable-insert-billing",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "node_7_airtable-update-billing": {
+      "main": [
+        [
+          {
+            "node": "node_8_airtable-search-client-mp",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "node_24_respond-airtable-update-billing",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "node_8_airtable-search-client-mp": {
+      "main": [
+        [
+          {
+            "node": "node_9_airtable-update-client-mp",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "node_23_respond-airtable-search-client-mp",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "node_9_airtable-update-client-mp": {
+      "main": [
+        [
+          {
+            "node": "node_10_code-prepare-mp-notification",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "node_22_respond-airtable-update-client-mp",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "node_10_code-prepare-mp-notification": {
+      "main": [
+        [
+          {
+            "node": "node_11_http-resend-mp-notification",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "node_21_respond-code-prepare-mp-notification",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "node_11_http-resend-mp-notification": {
+      "main": [
+        [
+          {
+            "node": "node_12_http-telegram-mp-alert",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "node_20_respond-http-resend-mp-notification",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "node_12_http-telegram-mp-alert": {
+      "main": [
+        [
+          {
+            "node": "node_13_if-mp-activation",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "node_19_respond-http-telegram-mp-alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "node_13_if-mp-activation": {
+      "main": [
+        [
+          {
+            "node": "node_14_http-netlify-rebuild-activate",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "node_17_respond-if-mp-activation",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "node_18_code-audit-site-blocked",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "node_14_http-netlify-rebuild-activate": {
+      "main": [
+        [
+          {
+            "node": "node_15_airtable-insert-audit-mp",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "node_15_airtable-insert-audit-mp": {
+      "main": [
+        [
+          {
+            "node": "node_16_respond-mercadopago",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "node_18_code-audit-site-blocked": {
+      "main": [
+        [
+          {
+            "node": "node_15_airtable-insert-audit-mp",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "node_26_airtable-insert-billing": {
+      "main": [
+        [
+          {
+            "node": "node_8_airtable-search-client-mp",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "node_27_respond-airtable-insert-billing",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": [
+    "optimized",
+    "elevea",
+    "modular"
+  ]
+}
