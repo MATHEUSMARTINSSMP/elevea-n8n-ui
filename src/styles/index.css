@@ -1,0 +1,29 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Base */
+:root {
+  --brand: 244 63 94;          /* rose-500 */
+  --brand-ink: 24 24 27;       /* zinc-900 */
+  --surface: 255 255 255;      /* white */
+  --muted: 244 244 245;        /* zinc-100 */
+  --border: 229 231 235;       /* gray-200 */
+}
+
+html, body, #root { height: 100%; }
+
+@layer base {
+  body { @apply bg-white text-zinc-900 font-sans; }
+}
+
+/* Helpers */
+.container-page { @apply max-w-7xl mx-auto px-4 sm:px-6 lg:px-8; }
+.card { @apply rounded-2xl border border-gray-200 bg-white shadow-soft; }
+.card-header { @apply p-5 border-b border-gray-100 flex items-center justify-between; }
+.card-title { @apply text-lg font-semibold; }
+.card-body { @apply p-5; }
+.btn { @apply inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-medium transition; }
+.btn-primary { @apply bg-rose-500 text-white hover:bg-rose-600; }
+.btn-ghost { @apply hover:bg-zinc-100; }
+.badge { @apply inline-flex items-center rounded-full px-2.5 py-0.5 text-xs border border-gray-200; }

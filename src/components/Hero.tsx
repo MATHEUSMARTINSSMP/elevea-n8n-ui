@@ -6,7 +6,7 @@ const heroMockup = '/placeholder.svg';
 
 const Hero = () => {
   return (
-    <section className="hero-mobile bg-gradient-section" id="topo">
+    <section className="py-16 bg-gradient-to-br from-yellow-100 to-yellow-200 test-css" id="topo">
       <div className="container">
         <div className="grid-responsive-2 items-center">
           <div className="space-mobile animate-fade-in">
