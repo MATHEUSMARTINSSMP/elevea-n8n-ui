@@ -1,265 +1,325 @@
-// src/components/AnalyticsProvider.tsx
-import React, {
-  createContext,
-  useContext,
-  useEffect,
-  useMemo,
-  useRef,
-} from "react";
-import { useLocation } from "react-router-dom";
-import {
-  initAnalytics,
-  identifyUser,
-  resetUser,
-  analytics,
-  useAnalytics,
-} from "@/lib/analytics";
-import { useSession } from "@/hooks/useSession";
+// Analytics Library - Compatível com múltiplos provedores
+import { useCallback, useState } from 'react';
 
-interface AnalyticsContextType {
-  trackEvent: (event: string, properties?: Record<string, any>) => void;
-  trackPage: (pageName: string, properties?: Record<string, any>) => void;
-  setUserProperty: (key: string, value: any) => void;
-  analytics: typeof analytics;
+// Tipos para analytics
+export interface AnalyticsUser {
+  id: string;
+  email: string;
+  role?: string;
+  siteSlug?: string;
+  plan?: string;
 }
 
-const AnalyticsContext = createContext<AnalyticsContextType | null>(null);
-
-interface AnalyticsProviderProps {
-  children: React.ReactNode;
+export interface AnalyticsEvent {
+  event: string;
+  properties?: Record<string, any>;
+  timestamp?: Date;
 }
 
-/**
- * Provider de Analytics à prova de falhas:
- * - Inicialização idempotente (não duplica no StrictMode/HMR).
- * - Nunca lança erro no render/boot (proteções com try/catch).
- * - Pageview de-duplicado por pathname+search.
- * - Respeita ausência de consentimento PII (hasConsent=false por padrão).
- * - Requer estar dentro de <BrowserRouter> (usa useLocation).
- */
-export function AnalyticsProvider({ children }: AnalyticsProviderProps) {
-  const { user } = useSession();
-  const location = useLocation(); // <-- precisa do BrowserRouter acima
-  const analyticsHook = useAnalytics();
+// Configuração do analytics
+interface AnalyticsConfig {
+  enabled: boolean;
+  debug: boolean;
+  provider: 'none' | 'google' | 'mixpanel' | 'posthog' | 'custom';
+  apiKey?: string;
+  projectId?: string;
+}
 
-  // Evita reinit (StrictMode/HMR)
-  const initedRef = useRef(false);
-  useEffect(() => {
-    if (initedRef.current) return;
+// Estado global do analytics
+let analyticsInstance: AnalyticsAdapter | null = null;
+let currentUser: AnalyticsUser | null = null;
+
+// Interface para adapters de analytics
+interface AnalyticsAdapter {
+  init(config: AnalyticsConfig): Promise<void>;
+  identify(user: AnalyticsUser, hasConsent?: boolean): void;
+  reset(): void;
+  trackEvent(event: string, properties?: Record<string, any>): void;
+  trackPage(page: string, properties?: Record<string, any>): void;
+  setUserProperty(key: string, value: any): void;
+  featureUsed?(feature: string, properties?: Record<string, any>): void;
+}
+
+// Adapter básico (NOOP)
+class NoopAnalyticsAdapter implements AnalyticsAdapter {
+  async init(config: AnalyticsConfig): Promise<void> {
+    console.log('[Analytics] NOOP adapter initialized');
+  }
+
+  identify(user: AnalyticsUser, hasConsent?: boolean): void {
+    console.log('[Analytics] NOOP identify:', user);
+  }
+
+  reset(): void {
+    console.log('[Analytics] NOOP reset');
+  }
+
+  trackEvent(event: string, properties?: Record<string, any>): void {
+    console.log('[Analytics] NOOP trackEvent:', event, properties);
+  }
+
+  trackPage(page: string, properties?: Record<string, any>): void {
+    console.log('[Analytics] NOOP trackPage:', page, properties);
+  }
+
+  setUserProperty(key: string, value: any): void {
+    console.log('[Analytics] NOOP setUserProperty:', key, value);
+  }
+
+  featureUsed?(feature: string, properties?: Record<string, any>): void {
+    console.log('[Analytics] NOOP featureUsed:', feature, properties);
+  }
+}
+
+// Adapter para Google Analytics 4
+class GoogleAnalyticsAdapter implements AnalyticsAdapter {
+  private gtag: any;
+
+  async init(config: AnalyticsConfig): Promise<void> {
+    if (typeof window === 'undefined') return;
+
+    // Carregar Google Analytics
+    const script = document.createElement('script');
+    script.src = `https://www.googletagmanager.com/gtag/js?id=${config.apiKey}`;
+    script.async = true;
+    document.head.appendChild(script);
+
+    return new Promise((resolve) => {
+      script.onload = () => {
+        this.gtag = (window as any).gtag;
+        this.gtag('config', config.apiKey, {
+          send_page_view: false, // Controlamos manualmente
+        });
+        resolve();
+      };
+    });
+  }
+
+  identify(user: AnalyticsUser, hasConsent?: boolean): void {
+    if (!this.gtag) return;
+    
+    this.gtag('config', 'GA_MEASUREMENT_ID', {
+      user_id: user.id,
+      custom_map: {
+        user_role: user.role,
+        user_plan: user.plan,
+        site_slug: user.siteSlug,
+      },
+    });
+  }
+
+  reset(): void {
+    if (!this.gtag) return;
+    this.gtag('config', 'GA_MEASUREMENT_ID', {
+      user_id: null,
+    });
+  }
+
+  trackEvent(event: string, properties?: Record<string, any>): void {
+    if (!this.gtag) return;
+    this.gtag('event', event, properties);
+  }
+
+  trackPage(page: string, properties?: Record<string, any>): void {
+    if (!this.gtag) return;
+    this.gtag('event', 'page_view', {
+      page_title: page,
+      page_location: window.location.href,
+      ...properties,
+    });
+  }
+
+  setUserProperty(key: string, value: any): void {
+    if (!this.gtag) return;
+    this.gtag('config', 'GA_MEASUREMENT_ID', {
+      [key]: value,
+    });
+  }
+}
+
+// Adapter customizado para N8N
+class N8NAnalyticsAdapter implements AnalyticsAdapter {
+  private baseURL: string;
+
+  constructor() {
+    this.baseURL = 'https://fluxos.eleveaagencia.com.br/webhook/api/analytics';
+  }
+
+  async init(config: AnalyticsConfig): Promise<void> {
+    console.log('[Analytics] N8N adapter initialized');
+  }
+
+  identify(user: AnalyticsUser, hasConsent?: boolean): void {
+    currentUser = user;
+    console.log('[Analytics] N8N identify:', user);
+  }
+
+  reset(): void {
+    currentUser = null;
+    console.log('[Analytics] N8N reset');
+  }
+
+  trackEvent(event: string, properties?: Record<string, any>): void {
+    // Enviar evento para N8N
+    this.sendToN8N('track', {
+      event,
+      properties: {
+        ...properties,
+        user_id: currentUser?.id,
+        user_email: currentUser?.email,
+        timestamp: new Date().toISOString(),
+      },
+    });
+  }
+
+  trackPage(page: string, properties?: Record<string, any>): void {
+    this.sendToN8N('page', {
+      page,
+      properties: {
+        ...properties,
+        user_id: currentUser?.id,
+        user_email: currentUser?.email,
+        timestamp: new Date().toISOString(),
+      },
+    });
+  }
+
+  setUserProperty(key: string, value: any): void {
+    if (currentUser) {
+      (currentUser as any)[key] = value;
+    }
+  }
+
+  private async sendToN8N(type: string, data: any): Promise<void> {
     try {
-      initAnalytics();
-      initedRef.current = true;
-    } catch (err) {
-      // Não derrubar a app por falha do provedor de analytics
-      console.warn("[Analytics] falha ao inicializar:", err);
+      await fetch(`${this.baseURL}/track`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          type,
+          data,
+        }),
+      });
+    } catch (error) {
+      console.warn('[Analytics] Failed to send to N8N:', error);
+    }
+  }
+}
+
+// Configuração padrão
+const defaultConfig: AnalyticsConfig = {
+  enabled: true,
+  debug: process.env.NODE_ENV === 'development',
+  provider: 'n8n', // Usar N8N por padrão
+};
+
+// Instância global do analytics
+export const analytics: AnalyticsAdapter = new N8NAnalyticsAdapter();
+
+// Função para inicializar analytics
+export async function initAnalytics(config: Partial<AnalyticsConfig> = {}): Promise<void> {
+  const finalConfig = { ...defaultConfig, ...config };
+  
+  if (!finalConfig.enabled) {
+    analyticsInstance = new NoopAnalyticsAdapter();
+    return;
+  }
+
+  switch (finalConfig.provider) {
+    case 'google':
+      analyticsInstance = new GoogleAnalyticsAdapter();
+      break;
+    case 'n8n':
+      analyticsInstance = new N8NAnalyticsAdapter();
+      break;
+    default:
+      analyticsInstance = new NoopAnalyticsAdapter();
+  }
+
+  await analyticsInstance.init(finalConfig);
+}
+
+// Função para identificar usuário
+export function identifyUser(user: AnalyticsUser, hasConsent: boolean = false): void {
+  if (analyticsInstance) {
+    analyticsInstance.identify(user, hasConsent);
+  }
+}
+
+// Função para resetar usuário
+export function resetUser(): void {
+  if (analyticsInstance) {
+    analyticsInstance.reset();
+  }
+}
+
+// Hook para usar analytics
+export function useAnalytics() {
+  const [isReady, setIsReady] = useState(false);
+
+  // Verificar se analytics está pronto
+  useCallback(() => {
+    setIsReady(!!analyticsInstance);
+  }, []);
+
+  const trackEvent = useCallback((event: string, properties?: Record<string, any>) => {
+    if (analyticsInstance) {
+      analyticsInstance.trackEvent(event, properties);
     }
   }, []);
 
-  // Identificar / resetar usuário quando sessão muda
-  useEffect(() => {
-    try {
-      if (user?.email) {
-        identifyUser(
-          {
-            id: user.email, // ID estável (email)
-            email: user.email,
-            role: user.role ?? "guest",
-            siteSlug: user.siteSlug,
-            plan: user.plan || "free",
-          },
-          false // hasConsent = false (sem PII até obter consentimento explícito)
-        );
-
-        // Evento de login (featureUsed) — tolerante a falhas
-        analytics.featureUsed?.("login", {
-          role: user.role,
-          site_slug: user.siteSlug,
-        });
-      } else {
-        resetUser();
-      }
-    } catch (err) {
-      console.warn("[Analytics] identify/reset falhou:", err);
+  const trackPage = useCallback((page: string, properties?: Record<string, any>) => {
+    if (analyticsInstance) {
+      analyticsInstance.trackPage(page, properties);
     }
-  }, [user]);
+  }, []);
 
-  // De-duplicar pageview e mapear nomes de páginas
-  const lastPathRef = useRef<string | null>(null);
-  useEffect(() => {
-    try {
-      const path = `${location.pathname}${location.search || ""}`;
-      if (lastPathRef.current === path) return;
-      lastPathRef.current = path;
-
-      let pageName = "unknown";
-      if (location.pathname === "/") pageName = "home";
-      else if (location.pathname.startsWith("/client")) pageName = "client_dashboard";
-      else if (location.pathname.startsWith("/admin")) pageName = "admin_dashboard";
-      else if (location.pathname.startsWith("/login")) pageName = "login";
-
-      analyticsHook?.trackPage?.(pageName, {
-        path,
-        user_role: user?.role,
-        site_slug: user?.siteSlug,
-      });
-    } catch (err) {
-      console.warn("[Analytics] trackPage falhou:", err);
+  const setUserProperty = useCallback((key: string, value: any) => {
+    if (analyticsInstance) {
+      analyticsInstance.setUserProperty(key, value);
     }
-  }, [location.pathname, location.search, user, analyticsHook]);
+  }, []);
 
-  // Context value estável
-  const contextValue: AnalyticsContextType = useMemo(
-    () => ({
-      trackEvent: (event, props) => {
-        try {
-          analyticsHook?.trackEvent?.(event, props);
-        } catch (err) {
-          console.warn("[Analytics] trackEvent falhou:", err);
-        }
-      },
-      trackPage: (page, props) => {
-        try {
-          analyticsHook?.trackPage?.(page, props);
-        } catch (err) {
-          console.warn("[Analytics] trackPage falhou:", err);
-        }
-      },
-      setUserProperty: (key, value) => {
-        try {
-          analyticsHook?.setUserProperty?.(key, value);
-        } catch (err) {
-          console.warn("[Analytics] setUserProperty falhou:", err);
-        }
-      },
-      analytics, // acesso direto ao adapter para casos avançados
-    }),
-    [analyticsHook]
-  );
-
-  return (
-    <AnalyticsContext.Provider value={contextValue}>
-      {children}
-    </AnalyticsContext.Provider>
-  );
-}
-
-// Hook público — nunca derruba a app se usado fora por engano.
-// (Mantém compatibilidade e evita crashes acidentais)
-export function useAnalyticsContext(): AnalyticsContextType {
-  const ctx = useContext(AnalyticsContext);
-  if (ctx) return ctx;
-  // NOOP seguro caso alguém use fora do provider por engano
-  return {
-    trackEvent: () => {},
-    trackPage: () => {},
-    setUserProperty: () => {},
-    analytics,
-  };
-}
-
-/** Componente para rastrear interações específicas (onClick) */
-interface TrackingComponentProps {
-  event: string;
-  properties?: Record<string, any>;
-  children: React.ReactElement;
-}
-
-export function TrackingComponent({
-  event,
-  properties,
-  children,
-}: TrackingComponentProps) {
-  const { trackEvent } = useAnalyticsContext();
-
-  const handleClick = (e: React.MouseEvent) => {
-    try {
-      trackEvent(event, properties);
-    } finally {
-      // Mantém o onClick original do filho
-      children.props.onClick?.(e);
+  const featureUsed = useCallback((feature: string, properties?: Record<string, any>) => {
+    if (analyticsInstance?.featureUsed) {
+      analyticsInstance.featureUsed(feature, properties);
     }
-  };
-
-  return React.cloneElement(children, { onClick: handleClick });
-}
-
-/** Hook para rastrear performance de componentes (tempo de vida) */
-export function useComponentTracking(componentName: string) {
-  const { trackEvent } = useAnalyticsContext();
-
-  useEffect(() => {
-    const startTime = performance.now();
-    return () => {
-      const renderTime = performance.now() - startTime;
-      try {
-        trackEvent("component_render_time", {
-          component: componentName,
-          render_time: renderTime,
-        });
-      } catch {
-        /* no-op */
-      }
-    };
-  }, [componentName, trackEvent]);
-
-  const trackComponentEvent = (
-    event: string,
-    properties?: Record<string, any>
-  ) => {
-    try {
-      trackEvent(`${componentName}_${event}`, properties);
-    } catch {
-      /* no-op */
-    }
-  };
-
-  return { trackComponentEvent };
-}
-
-/** Hooks utilitários para formulários */
-export function useFormTracking(formName: string) {
-  const { trackEvent } = useAnalyticsContext();
-
-  const trackFormStart = () => {
-    try {
-      trackEvent("form_started", { form_name: formName });
-    } catch {
-      /* no-op */
-    }
-  };
-
-  const trackFormSubmit = (success: boolean, errors?: string[]) => {
-    try {
-      trackEvent("form_submitted", {
-        form_name: formName,
-        success,
-        errors: errors?.join(", "),
-      });
-    } catch {
-      /* no-op */
-    }
-  };
-
-  const trackFieldInteraction = (
-    fieldName: string,
-    action: "focus" | "blur" | "change"
-  ) => {
-    try {
-      trackEvent("form_field_interaction", {
-        form_name: formName,
-        field_name: fieldName,
-        action,
-      });
-    } catch {
-      /* no-op */
-    }
-  };
+  }, []);
 
   return {
-    trackFormStart,
-    trackFormSubmit,
-    trackFieldInteraction,
+    isReady,
+    trackEvent,
+    trackPage,
+    setUserProperty,
+    featureUsed,
   };
 }
 
-export default AnalyticsProvider;
+// Utilitários para tracking
+export const trackEvent = (event: string, properties?: Record<string, any>) => {
+  if (analyticsInstance) {
+    analyticsInstance.trackEvent(event, properties);
+  }
+};
+
+export const trackPage = (page: string, properties?: Record<string, any>) => {
+  if (analyticsInstance) {
+    analyticsInstance.trackPage(page, properties);
+  }
+};
+
+export const setUserProperty = (key: string, value: any) => {
+  if (analyticsInstance) {
+    analyticsInstance.setUserProperty(key, value);
+  }
+};
+
+// Exportar tudo que o AnalyticsProvider precisa
+export {
+  AnalyticsUser,
+  AnalyticsEvent,
+  AnalyticsConfig,
+  AnalyticsAdapter,
+};
