@@ -355,10 +355,6 @@ body {
   @apply max-w-7xl;
 }
 
-.leading-tight {
-  @apply leading-tight;
-}
-
 /* Responsive Utilities */
 @media (max-width: 639px) {
   .hidden-mobile {
