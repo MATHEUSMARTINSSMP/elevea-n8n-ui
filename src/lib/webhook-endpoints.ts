@@ -4,7 +4,7 @@ const N8N_BASE_URL = 'https://fluxos.eleveaagencia.com.br';
 export const WEBHOOK_ENDPOINTS = {
   // AUTH Workflows
   AUTH: {
-    LOGIN: `${N8N_BASE_URL}/webhook-test/auth/login`,
+    LOGIN: `${N8N_BASE_URL}/webhook/api/auth/login`,
     REGISTER: `${N8N_BASE_URL}/webhook-test/auth/register`,
     RESET_PASSWORD: `${N8N_BASE_URL}/webhook-test/auth/reset-password`,
     VERIFY_TOKEN: `${N8N_BASE_URL}/webhook-test/auth/verify-token`,
